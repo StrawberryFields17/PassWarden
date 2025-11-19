@@ -153,23 +153,35 @@ class PassWardenApp(tk.Tk):
         self.config(menu=menubar)
 
     def _build_header(self):
-        header = ttk.Frame(self, style="Card.TFrame", padding=(16, 10))
+        header = ttk.Frame(self, style="Card.TFrame", padding=(18, 12))
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
 
+        # Left section: app title
+        title_row = ttk.Frame(header, style="Card.TFrame")
+        title_row.grid(row=0, column=0, sticky="w")
+        dot = tk.Canvas(title_row, width=14, height=14, highlightthickness=0, bg=header["background"])
+        dot.grid(row=0, column=0, padx=(0, 8))
+        dot.create_oval(2, 2, 12, 12, fill="#32d0c5", outline="")
+
         title = ttk.Label(
-            header,
+            title_row,
             text="PassWarden",
-            font=("Segoe UI Semibold", 14),
+            font=("Segoe UI Semibold", 13),
         )
-        title.grid(row=0, column=0, sticky="w")
+        title.grid(row=0, column=1, sticky="w")
 
         subtitle = ttk.Label(
             header,
-            text="Encrypted password vault with offline storage",
+            text="Secure password vault — local & encrypted",
             foreground=SUBTLE_FG,
         )
         subtitle.grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        # Accent bar at bottom of header
+        accent = tk.Frame(self, height=2, bg="#32d0c5", bd=0, highlightthickness=0)
+        accent.grid(row=0, column=0, sticky="sew", pady=(0, 0))
+
 
     # --- Vault tab ---
 
@@ -215,7 +227,7 @@ class PassWardenApp(tk.Tk):
 
         self.tree.bind("<<TreeviewSelect>>", lambda e: self.show_selected_details())
 
-        detail_frame = ttk.LabelFrame(parent, text="Details", padding=(8, 8))
+        detail_frame = ttk.LabelFrame(parent, text="Details", padding=(10, 8))
         detail_frame.grid(row=1, column=1, sticky="nsew", padx=(4, 8), pady=(0, 8))
         detail_frame.columnconfigure(1, weight=1)
         detail_frame.rowconfigure(5, weight=1)
@@ -261,11 +273,11 @@ class PassWardenApp(tk.Tk):
         parent.columnconfigure(1, weight=1)
         parent.rowconfigure(0, weight=1)
 
-        generator_frame = ttk.LabelFrame(parent, text="Password generator", padding=(10, 8))
+        generator_frame = ttk.LabelFrame(parent, text="Password generator", padding=(14, 10))
         generator_frame.grid(row=0, column=0, sticky="nsew", padx=(8, 4), pady=8)
         self._build_generator_panel(generator_frame)
 
-        analyzer_frame = ttk.LabelFrame(parent, text="Password analyzer", padding=(10, 8))
+        analyzer_frame = ttk.LabelFrame(parent, text="Password analyzer", padding=(14, 10))
         analyzer_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 8), pady=8)
         self._build_analyzer_panel(analyzer_frame)
 

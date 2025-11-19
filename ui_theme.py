@@ -1,20 +1,22 @@
 import tkinter as tk
 from tkinter import ttk
 
-# Palette (Tailwind-ish, a bit more “app-y”)
-BG_COLOR = "#020617"        # slate-950
-SURFACE_BG = "#020617"
-PANEL_BG = "#020617"
-HEADER_BG = "#0f172a"       # slate-900
-FRAME_BG = "#020617"
+# NordPass-ish palette
+# Dark bluish background + teal accent
+BG_COLOR = "#040816"             # very dark blue
+SURFACE_BG = "#050b1f"
+PANEL_BG = "#050b1f"
+HEADER_BG = "#071121"
 
-FG_COLOR = "#e5e7eb"        # gray-200
-SUBTLE_FG = "#9ca3af"       # gray-400
-ACCENT_COLOR = "#22c55e"    # emerald-500
-ACCENT_SECONDARY = "#38bdf8"  # sky-400
-ENTRY_BG = "#020617"
+FRAME_BG = SURFACE_BG
+FG_COLOR = "#e5f0ff"             # light bluish text
+SUBTLE_FG = "#9ca7c5"            # desaturated text
+
+ACCENT_COLOR = "#32d0c5"         # NordPass-like teal
+ACCENT_SECONDARY = "#4fa9ff"     # soft blue
+ENTRY_BG = "#070d1f"
 ENTRY_FG = FG_COLOR
-BORDER_COLOR = "#1f2937"    # slate-800
+BORDER_COLOR = "#17233b"
 
 
 def configure_dark_theme(root: tk.Tk) -> None:
@@ -26,7 +28,7 @@ def configure_dark_theme(root: tk.Tk) -> None:
 
     root.configure(bg=BG_COLOR)
 
-    default_font = ("Segoe UI", 10)
+    base_font = ("Segoe UI", 10)
     heading_font = ("Segoe UI Semibold", 10)
     button_font = ("Segoe UI Semibold", 10)
 
@@ -36,41 +38,45 @@ def configure_dark_theme(root: tk.Tk) -> None:
         background=BG_COLOR,
         foreground=FG_COLOR,
         fieldbackground=ENTRY_BG,
-        font=default_font,
+        font=base_font,
     )
 
     # Frames / panels
     style.configure("TFrame", background=SURFACE_BG)
     style.configure("Card.TFrame", background=HEADER_BG, relief="flat")
-    style.configure("TLabelframe", background=PANEL_BG, foreground=FG_COLOR)
-    style.configure("TLabelframe.Label", background=PANEL_BG, foreground=FG_COLOR, font=heading_font)
+    style.configure("TLabelframe", background=PANEL_BG, foreground=FG_COLOR, borderwidth=1)
+    style.configure(
+        "TLabelframe.Label",
+        background=PANEL_BG,
+        foreground=SUBTLE_FG,
+        font=heading_font,
+    )
     style.configure("TLabel", background=PANEL_BG, foreground=FG_COLOR)
 
     # Buttons
     style.configure(
         "TButton",
-        background=HEADER_BG,
+        background="#0b172b",
         foreground=FG_COLOR,
-        padding=(10, 6),
+        padding=(12, 6),
         relief="flat",
         borderwidth=0,
         font=button_font,
     )
     style.map(
         "TButton",
-        background=[("active", "#1e293b")],
+        background=[("active", "#13223d")],
         foreground=[("disabled", "#6b7280")],
     )
 
-    # Primary button style
     style.configure(
         "Primary.TButton",
         background=ACCENT_COLOR,
-        foreground="#020617",
+        foreground="#031014",
     )
     style.map(
         "Primary.TButton",
-        background=[("active", "#16a34a")],
+        background=[("active", "#25b5ac")],
     )
 
     # Treeview
@@ -81,12 +87,12 @@ def configure_dark_theme(root: tk.Tk) -> None:
         fieldbackground=FRAME_BG,
         bordercolor=BORDER_COLOR,
         rowheight=26,
-        font=default_font,
+        font=base_font,
     )
     style.configure(
         "Treeview.Heading",
-        background=HEADER_BG,
-        foreground=FG_COLOR,
+        background="#0b172b",
+        foreground=SUBTLE_FG,
         relief="flat",
         font=heading_font,
     )
@@ -96,7 +102,7 @@ def configure_dark_theme(root: tk.Tk) -> None:
         foreground=[("selected", "#020617")],
     )
 
-    # Entries / checkbuttons
+    # Entry / checkbutton / notebook
     style.configure(
         "TEntry",
         fieldbackground=ENTRY_BG,
@@ -105,9 +111,9 @@ def configure_dark_theme(root: tk.Tk) -> None:
         borderwidth=1,
         padding=(6, 4),
     )
+
     style.configure("TCheckbutton", background=PANEL_BG, foreground=FG_COLOR)
 
-    # Notebook tabs
     style.configure(
         "TNotebook",
         background=BG_COLOR,
@@ -115,23 +121,23 @@ def configure_dark_theme(root: tk.Tk) -> None:
     )
     style.configure(
         "TNotebook.Tab",
-        background=HEADER_BG,
+        background="#081326",
         foreground=SUBTLE_FG,
-        padding=(16, 6),
+        padding=(18, 6),
         font=("Segoe UI Semibold", 10),
     )
     style.map(
         "TNotebook.Tab",
         background=[
-            ("selected", "#111827"),
-            ("active", "#111827"),
+            ("selected", "#0e1b33"),
+            ("active", "#0e1b33"),
         ],
         foreground=[
             ("selected", FG_COLOR),
         ],
     )
 
-    # Make things crisp at 150% scaling
+    # Crisp at 150% scaling
     try:
         root.tk.call("tk", "scaling", 1.5)
     except tk.TclError:
