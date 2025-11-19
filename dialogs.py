@@ -1,10 +1,33 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from ui_theme import BG_COLOR, ENTRY_BG, ENTRY_FG
+from ui_theme import BG_COLOR, ENTRY_BG, ENTRY_FG, SUBTLE_FG
+
+
+def center_window(win: tk.Toplevel | tk.Tk, width: int | None = None, height: int | None = None):
+    win.update_idletasks()
+    if width and height:
+        sw = win.winfo_screenwidth()
+        sh = win.winfo_screenheight()
+        x = (sw - width) // 2
+        y = (sh - height) // 2
+        win.geometry(f"{width}x{height}+{x}+{y}")
+    else:
+        # center current size
+        sw = win.winfo_screenwidth()
+        sh = win.winfo_screenheight()
+        w = win.winfo_width()
+        h = win.winfo_height()
+        x = (sw - w) // 2
+        y = (sh - h) // 2
+        win.geometry(f"+{x}+{y}")
 
 
 class MasterPasswordDialog(tk.Toplevel):
+    """
+    Shown only the very first time (when no vault file exists).
+    """
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Set master password")
@@ -18,35 +41,49 @@ class MasterPasswordDialog(tk.Toplevel):
         self._build_ui()
         self.transient(parent)
         self.grab_set()
+        center_window(self, width=420, height=210)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
     def _build_ui(self):
-        main = ttk.Frame(self, padding=12)
-        main.grid(row=0, column=0)
+        main = ttk.Frame(self, padding=16)
+        main.grid(row=0, column=0, sticky="nsew")
+        main.columnconfigure(0, weight=1)
+        main.columnconfigure(1, weight=1)
 
-        ttk.Label(
+        header = ttk.Label(
             main,
-            text="Create a master password.\nIf you forget it, your vault cannot be recovered.",
-            wraplength=340,
-        ).grid(row=0, column=0, columnspan=2, pady=(0, 10))
+            text="Create your master password",
+            font=("Segoe UI Semibold", 12),
+        )
+        header.grid(row=0, column=0, columnspan=2, sticky="w")
 
-        ttk.Label(main, text="Master password:").grid(row=1, column=0, sticky="e", pady=2)
+        subtitle = ttk.Label(
+            main,
+            text="This password encrypts your vault. If you lose it, your data "
+                 "cannot be recovered.",
+            foreground=SUBTLE_FG,
+            wraplength=380,
+        )
+        subtitle.grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 14))
+
+        ttk.Label(main, text="Master password:").grid(row=2, column=0, sticky="e", pady=4, padx=(0, 8))
         ttk.Entry(main, textvariable=self.pass_var, show="*", width=32).grid(
-            row=1, column=1, pady=2
+            row=2, column=1, sticky="w", pady=4
         )
 
-        ttk.Label(main, text="Confirm:").grid(row=2, column=0, sticky="e", pady=2)
+        ttk.Label(main, text="Confirm:").grid(row=3, column=0, sticky="e", pady=4, padx=(0, 8))
         ttk.Entry(main, textvariable=self.confirm_var, show="*", width=32).grid(
-            row=2, column=1, pady=2
+            row=3, column=1, sticky="w", pady=4
         )
 
         btn_frame = ttk.Frame(main)
-        btn_frame.grid(row=3, column=0, columnspan=2, pady=(10, 0), sticky="e")
+        btn_frame.grid(row=4, column=0, columnspan=2, pady=(16, 0), sticky="e")
+
         ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).grid(
-            row=0, column=0, padx=5
+            row=0, column=0, padx=6
         )
-        ttk.Button(btn_frame, text="Create", command=self.on_ok).grid(
-            row=0, column=1, padx=5
+        ttk.Button(btn_frame, text="Create", style="Primary.TButton", command=self.on_ok).grid(
+            row=0, column=1, padx=6
         )
 
     def on_ok(self):
@@ -54,6 +91,9 @@ class MasterPasswordDialog(tk.Toplevel):
         p2 = self.confirm_var.get()
         if not p1:
             messagebox.showerror("Error", "Password cannot be empty.", parent=self)
+            return
+        if len(p1) < 8:
+            messagebox.showerror("Error", "Use at least 8 characters.", parent=self)
             return
         if p1 != p2:
             messagebox.showerror("Error", "Passwords do not match.", parent=self)
@@ -67,9 +107,13 @@ class MasterPasswordDialog(tk.Toplevel):
 
 
 class UnlockDialog(tk.Toplevel):
+    """
+    Shown on subsequent runs when a vault already exists.
+    """
+
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("Unlock vault")
+        self.title("Unlock PassWarden")
         self.resizable(False, False)
         self.configure(bg=BG_COLOR)
         self.result = None
@@ -78,30 +122,43 @@ class UnlockDialog(tk.Toplevel):
         self._build_ui()
         self.transient(parent)
         self.grab_set()
+        center_window(self, width=380, height=170)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
     def _build_ui(self):
-        main = ttk.Frame(self, padding=12)
-        main.grid(row=0, column=0)
+        main = ttk.Frame(self, padding=16)
+        main.grid(row=0, column=0, sticky="nsew")
+        main.columnconfigure(0, weight=1)
+        main.columnconfigure(1, weight=1)
 
-        ttk.Label(
+        header = ttk.Label(
             main,
-            text="Enter your master password to unlock the vault.",
-            wraplength=340,
-        ).grid(row=0, column=0, columnspan=2, pady=(0, 10))
+            text="Unlock your vault",
+            font=("Segoe UI Semibold", 12),
+        )
+        header.grid(row=0, column=0, columnspan=2, sticky="w")
 
-        ttk.Label(main, text="Master password:").grid(row=1, column=0, sticky="e", pady=2)
-        entry = ttk.Entry(main, textvariable=self.pass_var, show="*", width=32)
-        entry.grid(row=1, column=1, pady=2)
+        subtitle = ttk.Label(
+            main,
+            text="Enter your master password to decrypt your stored passwords.",
+            foreground=SUBTLE_FG,
+            wraplength=340,
+        )
+        subtitle.grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 12))
+
+        ttk.Label(main, text="Master password:").grid(row=2, column=0, sticky="e", pady=4, padx=(0, 8))
+        entry = ttk.Entry(main, textvariable=self.pass_var, show="*", width=28)
+        entry.grid(row=2, column=1, sticky="w", pady=4)
         entry.focus_set()
 
         btn_frame = ttk.Frame(main)
-        btn_frame.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="e")
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=(16, 0), sticky="e")
+
         ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).grid(
-            row=0, column=0, padx=5
+            row=0, column=0, padx=6
         )
-        ttk.Button(btn_frame, text="Unlock", command=self.on_ok).grid(
-            row=0, column=1, padx=5
+        ttk.Button(btn_frame, text="Unlock", style="Primary.TButton", command=self.on_ok).grid(
+            row=0, column=1, padx=6
         )
 
     def on_ok(self):
@@ -114,6 +171,10 @@ class UnlockDialog(tk.Toplevel):
 
 
 class EntryDialog(tk.Toplevel):
+    """
+    Add/edit an entry (still a dialog, but more polished).
+    """
+
     def __init__(self, parent, title, entry=None):
         super().__init__(parent)
         self.title(title)
@@ -130,38 +191,40 @@ class EntryDialog(tk.Toplevel):
         self._build_ui()
         self.transient(parent)
         self.grab_set()
+        center_window(self, width=520, height=320)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
     def _build_ui(self):
-        main = ttk.Frame(self, padding=12)
+        main = ttk.Frame(self, padding=16)
         main.grid(row=0, column=0, sticky="nsew")
+        main.columnconfigure(1, weight=1)
 
         row = 0
-        ttk.Label(main, text="Name:").grid(row=row, column=0, sticky="e", pady=2)
+        ttk.Label(main, text="Name:").grid(row=row, column=0, sticky="e", pady=4, padx=(0, 8))
         ttk.Entry(main, textvariable=self.name_var, width=40).grid(
-            row=row, column=1, sticky="w", pady=2
+            row=row, column=1, sticky="ew", pady=4
         )
         row += 1
 
-        ttk.Label(main, text="Username:").grid(row=row, column=0, sticky="e", pady=2)
+        ttk.Label(main, text="Username:").grid(row=row, column=0, sticky="e", pady=4, padx=(0, 8))
         ttk.Entry(main, textvariable=self.username_var, width=40).grid(
-            row=row, column=1, sticky="w", pady=2
+            row=row, column=1, sticky="ew", pady=4
         )
         row += 1
 
-        ttk.Label(main, text="Password:").grid(row=row, column=0, sticky="e", pady=2)
+        ttk.Label(main, text="Password:").grid(row=row, column=0, sticky="e", pady=4, padx=(0, 8))
         ttk.Entry(main, textvariable=self.password_var, show="*", width=40).grid(
-            row=row, column=1, sticky="w", pady=2
+            row=row, column=1, sticky="ew", pady=4
         )
         row += 1
 
-        ttk.Label(main, text="URL:").grid(row=row, column=0, sticky="e", pady=2)
+        ttk.Label(main, text="URL:").grid(row=row, column=0, sticky="e", pady=4, padx=(0, 8))
         ttk.Entry(main, textvariable=self.url_var, width=40).grid(
-            row=row, column=1, sticky="w", pady=2
+            row=row, column=1, sticky="ew", pady=4
         )
         row += 1
 
-        ttk.Label(main, text="Notes:").grid(row=row, column=0, sticky="ne", pady=2)
+        ttk.Label(main, text="Notes:").grid(row=row, column=0, sticky="ne", pady=4, padx=(0, 8))
         notes = tk.Text(
             main,
             width=40,
@@ -170,19 +233,20 @@ class EntryDialog(tk.Toplevel):
             fg=ENTRY_FG,
             insertbackground=ENTRY_FG,
             relief="flat",
+            borderwidth=1,
         )
-        notes.grid(row=row, column=1, sticky="w", pady=2)
+        notes.grid(row=row, column=1, sticky="nsew", pady=4)
         notes.insert("1.0", self.notes_var.get())
         self.notes_widget = notes
         row += 1
 
         btn_frame = ttk.Frame(main)
-        btn_frame.grid(row=row, column=0, columnspan=2, pady=(10, 0), sticky="e")
+        btn_frame.grid(row=row, column=0, columnspan=2, pady=(16, 0), sticky="e")
         ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).grid(
-            row=0, column=0, padx=5
+            row=0, column=0, padx=6
         )
-        ttk.Button(btn_frame, text="Save", command=self.on_ok).grid(
-            row=0, column=1, padx=5
+        ttk.Button(btn_frame, text="Save", style="Primary.TButton", command=self.on_ok).grid(
+            row=0, column=1, padx=6
         )
 
     def on_ok(self):
