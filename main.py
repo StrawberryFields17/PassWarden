@@ -7,23 +7,34 @@ import hashlib
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
+import urllib.request
+import webbrowser
 
 from cryptography.fernet import Fernet, InvalidToken
 
 
+# ---------- App metadata & files --------------------------------------------
+
+APP_NAME = "PassWarden"
+APP_VERSION = "0.1.0"
+
+# When built as EXE, these paths are still fine (relative to main.exe folder)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VAULT_FILENAME = "vault.pw"
-VAULT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), VAULT_FILENAME)
+VAULT_PATH = os.path.join(BASE_DIR, VAULT_FILENAME)
+
+# URL to a small JSON file in your GitHub repo, see update.json section below
+UPDATE_INFO_URL = (
+    "https://raw.githubusercontent.com/StrawberryFields17/PassWarden/main/update.json"
+)
+
 PBKDF2_ITERATIONS = 200_000
 
 
-# ------------- Crypto & storage ---------------------------------------------
+# ---------- Crypto & storage -------------------------------------------------
 
 
 def derive_key(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) -> bytes:
-    """
-    Derive a 32-byte key from the master password using PBKDF2-HMAC-SHA256,
-    then encode it in URL-safe base64 for Fernet.
-    """
     key = hashlib.pbkdf2_hmac(
         "sha256",
         password.encode("utf-8"),
@@ -35,10 +46,6 @@ def derive_key(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) 
 
 
 def encrypt_vault(vault_data: dict, password: str) -> dict:
-    """
-    Encrypt the vault_data dict using a key derived from password.
-    Returns a JSON-serializable dict that you can write to disk.
-    """
     salt = os.urandom(16)
     key = derive_key(password, salt)
     f = Fernet(key)
@@ -55,10 +62,6 @@ def encrypt_vault(vault_data: dict, password: str) -> dict:
 
 
 def decrypt_vault(container: dict, password: str) -> dict:
-    """
-    Decrypt a vault container (dict as produced by encrypt_vault) with the
-    master password. Raises InvalidToken if the password is wrong.
-    """
     salt = base64.b64decode(container["salt"])
     iterations = container.get("iterations", PBKDF2_ITERATIONS)
     key = derive_key(password, salt, iterations)
@@ -83,10 +86,18 @@ def save_vault_file(path: str, vault_data: dict, password: str) -> None:
 
 
 def new_empty_vault() -> dict:
-    return {"version": 1, "entries": []}
+    # settings are stored inside the vault => encrypted as well
+    return {
+        "version": 1,
+        "settings": {
+            "window_width": 900,
+            "window_height": 500,
+        },
+        "entries": [],
+    }
 
 
-# ------------- Password generator -------------------------------------------
+# ---------- Password generator ----------------------------------------------
 
 
 def generate_password(
@@ -113,14 +124,12 @@ def generate_password(
 
 
 def estimate_strength_bits(length: int, alphabet_size: int) -> float:
-    # Very rough: log2(alphabet_size ** length) = length * log2(alphabet_size)
     import math
 
     return length * math.log2(alphabet_size)
 
 
 def classify_strength(bits: float) -> str:
-    # Rough categories
     if bits < 40:
         return "Weak"
     elif bits < 60:
@@ -138,7 +147,7 @@ class PasswordGeneratorDialog(tk.Toplevel):
         self.resizable(False, False)
         self.on_password_chosen = on_password_chosen
 
-        self.length_var = tk.IntVar(value=20)
+        self.length_var = tk.IntVar(value(20))
         self.use_lower_var = tk.BooleanVar(value=True)
         self.use_upper_var = tk.BooleanVar(value=True)
         self.use_digits_var = tk.BooleanVar(value=True)
@@ -157,10 +166,7 @@ class PasswordGeneratorDialog(tk.Toplevel):
         main = ttk.Frame(self, padding=12)
         main.grid(row=0, column=0, sticky="nsew")
 
-        # Generated password display
-        ttk.Label(main, text="Generated password:").grid(
-            row=0, column=0, sticky="w"
-        )
+        ttk.Label(main, text="Generated password:").grid(row=0, column=0, sticky="w")
         entry = ttk.Entry(main, textvariable=self.generated_var, width=40)
         entry.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 4))
 
@@ -168,7 +174,6 @@ class PasswordGeneratorDialog(tk.Toplevel):
             row=2, column=0, columnspan=3, sticky="w", pady=(0, 8)
         )
 
-        # Options
         ttk.Label(main, text="Length:").grid(row=3, column=0, sticky="w")
         length_spin = ttk.Spinbox(
             main, from_=8, to=64, textvariable=self.length_var, width=5
@@ -190,12 +195,11 @@ class PasswordGeneratorDialog(tk.Toplevel):
         row += 1
         ttk.Checkbutton(
             main,
-            text="Use symbols (!@#$%^&* etc.)",
+            text="Use symbols (!@#$%^&*)",
             variable=self.use_symbols_var,
         ).grid(row=row, column=0, columnspan=3, sticky="w")
         row += 1
 
-        # Buttons
         btn_frame = ttk.Frame(main)
         btn_frame.grid(row=row, column=0, columnspan=3, pady=(10, 0), sticky="e")
 
@@ -224,13 +228,13 @@ class PasswordGeneratorDialog(tk.Toplevel):
 
         self.generated_var.set(pwd)
 
-        # Strength estimate
         alphabet_size = (
             (26 if self.use_lower_var.get() else 0)
             + (26 if self.use_upper_var.get() else 0)
             + (10 if self.use_digits_var.get() else 0)
-            + (26 if self.use_symbols_var.get() else 0)  # rough
+            + (26 if self.use_symbols_var.get() else 0)
         )
+
         bits = estimate_strength_bits(self.length_var.get(), alphabet_size)
         category = classify_strength(bits)
         self.strength_var.set(f"Strength: {category} (~{bits:.0f} bits)")
@@ -249,7 +253,7 @@ class PasswordGeneratorDialog(tk.Toplevel):
         self.destroy()
 
 
-# ------------- Entry editor dialog ------------------------------------------
+# ---------- Entry editor dialog ---------------------------------------------
 
 
 class EntryDialog(tk.Toplevel):
@@ -257,7 +261,6 @@ class EntryDialog(tk.Toplevel):
         super().__init__(parent)
         self.title(title)
         self.resizable(False, False)
-
         self.result = None
 
         self.name_var = tk.StringVar(value=(entry or {}).get("name", ""))
@@ -276,7 +279,6 @@ class EntryDialog(tk.Toplevel):
         main.grid(row=0, column=0, sticky="nsew")
 
         row = 0
-
         ttk.Label(main, text="Name:").grid(row=row, column=0, sticky="e", pady=2)
         ttk.Entry(main, textvariable=self.name_var, width=40).grid(
             row=row, column=1, sticky="w", pady=2
@@ -295,9 +297,9 @@ class EntryDialog(tk.Toplevel):
         ttk.Entry(pwd_frame, textvariable=self.password_var, show="*", width=30).grid(
             row=0, column=0
         )
-        ttk.Button(
-            pwd_frame, text="Generate", command=self.open_generator
-        ).grid(row=0, column=1, padx=(5, 0))
+        ttk.Button(pwd_frame, text="Generate", command=self.open_generator).grid(
+            row=0, column=1, padx=(5, 0)
+        )
         row += 1
 
         ttk.Label(main, text="URL:").grid(row=row, column=0, sticky="e", pady=2)
@@ -346,20 +348,15 @@ class EntryDialog(tk.Toplevel):
         self.destroy()
 
 
-# ------------- Master password dialogs --------------------------------------
+# ---------- Master password dialogs -----------------------------------------
 
 
 class MasterPasswordDialog(tk.Toplevel):
-    """
-    Shown when no vault exists yet: lets user set a new master password.
-    """
-
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Set master password")
         self.resizable(False, False)
         self.result = None
-
         self.pass_var = tk.StringVar()
         self.confirm_var = tk.StringVar()
 
@@ -376,7 +373,7 @@ class MasterPasswordDialog(tk.Toplevel):
             main,
             text=(
                 "Create a master password.\n"
-                "You must remember this; if you lose it, your vault is unrecoverable."
+                "If you forget it, your vault cannot be recovered."
             ),
             wraplength=320,
         ).grid(row=0, column=0, columnspan=2, pady=(0, 10))
@@ -420,10 +417,6 @@ class MasterPasswordDialog(tk.Toplevel):
 
 
 class UnlockDialog(tk.Toplevel):
-    """
-    Shown when a vault exists: asks for the master password.
-    """
-
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Unlock vault")
@@ -471,28 +464,43 @@ class UnlockDialog(tk.Toplevel):
         self.destroy()
 
 
-# ------------- Main application --------------------------------------------
+# ---------- Update checking --------------------------------------------------
+
+
+def parse_version(v: str):
+    return tuple(int(x) for x in v.split("."))
+
+
+# ---------- Main app ---------------------------------------------------------
 
 
 class PassWardenApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("PassWarden")
-        self.geometry("700x400")
+        self.title(APP_NAME)
 
         self.master_password = None
-        self.vault = None  # dict with "entries": list
+        self.vault = None
 
         self._init_style()
         if not self._unlock_or_initialize():
-            # User cancelled
             self.destroy()
             return
 
+        # get encrypted settings
+        settings = self.vault.setdefault("settings", {})
+        width = settings.get("window_width", 900)
+        height = settings.get("window_height", 500)
+        self.geometry(f"{width}x{height}")
+
         self._build_ui()
         self.refresh_entries_list()
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
-    # ----- setup & style -----
+        # auto-check for updates on startup (silent if OK/failed)
+        self.after(3000, lambda: self.check_for_updates(silent=True))
+
+    # --- setup & style ---
 
     def _init_style(self):
         style = ttk.Style(self)
@@ -501,7 +509,6 @@ class PassWardenApp(tk.Tk):
 
     def _unlock_or_initialize(self) -> bool:
         if not os.path.exists(VAULT_PATH):
-            # New vault
             dlg = MasterPasswordDialog(self)
             self.wait_window(dlg)
             if dlg.result is None:
@@ -511,7 +518,6 @@ class PassWardenApp(tk.Tk):
             save_vault_file(VAULT_PATH, self.vault, self.master_password)
             return True
         else:
-            # Existing vault
             while True:
                 dlg = UnlockDialog(self)
                 self.wait_window(dlg)
@@ -532,11 +538,32 @@ class PassWardenApp(tk.Tk):
                 self.vault = vault
                 return True
 
-    # ----- UI building -----
+    # --- UI ---
 
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
+
+        # menu bar
+        menubar = tk.Menu(self)
+        file_menu = tk.Menu(menubar, tearoff=False)
+        file_menu.add_command(label="Lock && Exit", command=self.on_close)
+        menubar.add_cascade(label="File", menu=file_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=False)
+        help_menu.add_command(label="Check for updates...", command=self.check_for_updates)
+        help_menu.add_separator()
+        help_menu.add_command(
+            label="About",
+            command=lambda: messagebox.showinfo(
+                "About",
+                f"{APP_NAME} {APP_VERSION}\nLocal encrypted password manager.",
+                parent=self,
+            ),
+        )
+        menubar.add_cascade(label="Help", menu=help_menu)
+
+        self.config(menu=menubar)
 
         main = ttk.Frame(self, padding=8)
         main.grid(row=0, column=0, sticky="nsew")
@@ -544,26 +571,15 @@ class PassWardenApp(tk.Tk):
         main.columnconfigure(1, weight=3)
         main.rowconfigure(1, weight=1)
 
-        # Toolbar
         toolbar = ttk.Frame(main)
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 5))
-        ttk.Button(toolbar, text="Add", command=self.add_entry).grid(
-            row=0, column=0, padx=2
-        )
-        ttk.Button(toolbar, text="Edit", command=self.edit_selected_entry).grid(
-            row=0, column=1, padx=2
-        )
-        ttk.Button(toolbar, text="Delete", command=self.delete_selected_entry).grid(
-            row=0, column=2, padx=2
-        )
-        ttk.Button(toolbar, text="Copy password", command=self.copy_selected_password).grid(
-            row=0, column=3, padx=2
-        )
-        ttk.Button(toolbar, text="Password generator", command=self.open_generator).grid(
-            row=0, column=4, padx=2
-        )
 
-        # Entries list
+        ttk.Button(toolbar, text="Add", command=self.add_entry).grid(row=0, column=0, padx=2)
+        ttk.Button(toolbar, text="Edit", command=self.edit_selected_entry).grid(row=0, column=1, padx=2)
+        ttk.Button(toolbar, text="Delete", command=self.delete_selected_entry).grid(row=0, column=2, padx=2)
+        ttk.Button(toolbar, text="Copy password", command=self.copy_selected_password).grid(row=0, column=3, padx=2)
+        ttk.Button(toolbar, text="Password generator", command=self.open_generator).grid(row=0, column=4, padx=2)
+
         self.tree = ttk.Treeview(
             main,
             columns=("name", "username", "url"),
@@ -573,24 +589,21 @@ class PassWardenApp(tk.Tk):
         self.tree.heading("name", text="Name")
         self.tree.heading("username", text="Username")
         self.tree.heading("url", text="URL")
-        self.tree.column("name", width=180)
-        self.tree.column("username", width=120)
-        self.tree.column("url", width=200)
+        self.tree.column("name", width=200)
+        self.tree.column("username", width=150)
+        self.tree.column("url", width=250)
         self.tree.grid(row=1, column=0, sticky="nsew", padx=(0, 5))
 
-        scrollbar = ttk.Scrollbar(
-            main, orient="vertical", command=self.tree.yview
-        )
+        scrollbar = ttk.Scrollbar(main, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.grid(row=1, column=0, sticky="nse", padx=(0, 0))
 
         self.tree.bind("<<TreeviewSelect>>", lambda e: self.show_selected_details())
 
-        # Details pane
         detail_frame = ttk.LabelFrame(main, text="Details")
         detail_frame.grid(row=1, column=1, sticky="nsew")
         detail_frame.columnconfigure(1, weight=1)
-        detail_frame.rowconfigure(4, weight=1)
+        detail_frame.rowconfigure(5, weight=1)
 
         self.detail_name = tk.StringVar()
         self.detail_username = tk.StringVar()
@@ -599,47 +612,31 @@ class PassWardenApp(tk.Tk):
         self.detail_updated = tk.StringVar()
 
         ttk.Label(detail_frame, text="Name:").grid(row=0, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_name).grid(
-            row=0, column=1, sticky="w"
-        )
+        ttk.Label(detail_frame, textvariable=self.detail_name).grid(row=0, column=1, sticky="w")
 
         ttk.Label(detail_frame, text="Username:").grid(row=1, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_username).grid(
-            row=1, column=1, sticky="w"
-        )
+        ttk.Label(detail_frame, textvariable=self.detail_username).grid(row=1, column=1, sticky="w")
 
         ttk.Label(detail_frame, text="URL:").grid(row=2, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_url).grid(
-            row=2, column=1, sticky="w"
-        )
+        ttk.Label(detail_frame, textvariable=self.detail_url).grid(row=2, column=1, sticky="w")
 
         ttk.Label(detail_frame, text="Created:").grid(row=3, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_created).grid(
-            row=3, column=1, sticky="w"
-        )
+        ttk.Label(detail_frame, textvariable=self.detail_created).grid(row=3, column=1, sticky="w")
 
         ttk.Label(detail_frame, text="Updated:").grid(row=4, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_updated).grid(
-            row=4, column=1, sticky="w"
-        )
+        ttk.Label(detail_frame, textvariable=self.detail_updated).grid(row=4, column=1, sticky="w")
 
         ttk.Label(detail_frame, text="Notes:").grid(row=5, column=0, sticky="ne")
         self.detail_notes = tk.Text(detail_frame, width=40, height=8, state="disabled")
         self.detail_notes.grid(row=5, column=1, sticky="nsew")
 
-    # ----- vault helpers -----
+    # --- vault helpers ---
 
     def _save_vault(self):
         save_vault_file(VAULT_PATH, self.vault, self.master_password)
 
-    def _get_selected_entry_id(self):
-        selection = self.tree.selection()
-        if not selection:
-            return None
-        return self.tree.item(selection[0], "values")[0]
-
     def _get_entries(self):
-        return self.vault["entries"]
+        return self.vault.setdefault("entries", [])
 
     def _find_entry_by_id(self, entry_id):
         for e in self._get_entries():
@@ -647,7 +644,7 @@ class PassWardenApp(tk.Tk):
                 return e
         return None
 
-    # ----- UI actions -----
+    # --- actions ---
 
     def refresh_entries_list(self):
         self.tree.delete(*self.tree.get_children())
@@ -656,14 +653,8 @@ class PassWardenApp(tk.Tk):
                 "",
                 "end",
                 iid=entry["id"],
-                values=(entry["id"], entry["username"], entry["url"]),
-                text=entry["name"],
+                values=(entry["name"], entry.get("username", ""), entry.get("url", "")),
             )
-            # We use 'text' for name but also store id in first column invisibly.
-        # Fix headings: show name column as entry name instead of id
-        self.tree.configure(displaycolumns=("name", "username", "url"))
-        for entry in self._get_entries():
-            self.tree.set(entry["id"], "name", entry["name"])
 
     def show_selected_details(self):
         selection = self.tree.selection()
@@ -688,7 +679,6 @@ class PassWardenApp(tk.Tk):
         self.detail_url.set(entry.get("url", ""))
         self.detail_created.set(entry.get("created", ""))
         self.detail_updated.set(entry.get("updated", ""))
-
         self.detail_notes.configure(state="normal")
         self.detail_notes.delete("1.0", "end")
         self.detail_notes.insert("1.0", entry.get("notes", ""))
@@ -737,9 +727,7 @@ class PassWardenApp(tk.Tk):
     def delete_selected_entry(self):
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo(
-                "No selection", "Select an entry to delete.", parent=self
-            )
+            messagebox.showinfo("No selection", "Select an entry to delete.", parent=self)
             return
         entry_id = selection[0]
         entry = self._find_entry_by_id(entry_id)
@@ -752,9 +740,7 @@ class PassWardenApp(tk.Tk):
         ):
             return
 
-        self.vault["entries"] = [
-            e for e in self._get_entries() if e["id"] != entry_id
-        ]
+        self.vault["entries"] = [e for e in self._get_entries() if e["id"] != entry_id]
         self._save_vault()
         self.refresh_entries_list()
         self.show_selected_details()
@@ -785,6 +771,59 @@ class PassWardenApp(tk.Tk):
 
     def open_generator(self):
         PasswordGeneratorDialog(self)
+
+    # --- update checking ---
+
+    def check_for_updates(self, silent=False):
+        try:
+            with urllib.request.urlopen(UPDATE_INFO_URL, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            latest = data.get("version")
+            download_url = data.get(
+                "download_url",
+                "https://github.com/StrawberryFields17/PassWarden/releases",
+            )
+        except Exception as e:
+            if not silent:
+                messagebox.showinfo(
+                    "Check for updates",
+                    f"Could not check for updates:\n{e}",
+                    parent=self,
+                )
+            return
+
+        if latest and parse_version(latest) > parse_version(APP_VERSION):
+            if messagebox.askyesno(
+                "Update available",
+                f"A newer version ({latest}) is available.\n"
+                f"You are running {APP_VERSION}.\n\n"
+                f"Open the download page?",
+                parent=self,
+            ):
+                webbrowser.open(download_url)
+        else:
+            if not silent:
+                messagebox.showinfo(
+                    "Up to date",
+                    f"{APP_NAME} {APP_VERSION} is the latest version.",
+                    parent=self,
+                )
+
+    # --- close / settings ---
+
+    def on_close(self):
+        # save current window size in encrypted settings
+        try:
+            size = self.geometry().split("+")[0]
+            width, height = size.split("x")
+            settings = self.vault.setdefault("settings", {})
+            settings["window_width"] = int(width)
+            settings["window_height"] = int(height)
+        except Exception:
+            pass
+
+        self._save_vault()
+        self.destroy()
 
 
 def main():
