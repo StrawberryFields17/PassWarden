@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 
 # NordPass-ish palette
-# Dark bluish background + teal accent
 BG_COLOR = "#040816"             # very dark blue
 SURFACE_BG = "#050b1f"
 PANEL_BG = "#050b1f"
@@ -12,7 +11,7 @@ FRAME_BG = SURFACE_BG
 FG_COLOR = "#e5f0ff"             # light bluish text
 SUBTLE_FG = "#9ca7c5"            # desaturated text
 
-ACCENT_COLOR = "#32d0c5"         # NordPass-like teal
+ACCENT_COLOR = "#32d0c5"         # teal accent
 ACCENT_SECONDARY = "#4fa9ff"     # soft blue
 ENTRY_BG = "#070d1f"
 ENTRY_FG = FG_COLOR
@@ -20,6 +19,9 @@ BORDER_COLOR = "#17233b"
 
 
 def configure_dark_theme(root: tk.Tk) -> None:
+    """
+    Configure a dark, NordPass-like ttk theme with larger, very readable fonts.
+    """
     style = ttk.Style(root)
     try:
         style.theme_use("clam")
@@ -28,11 +30,12 @@ def configure_dark_theme(root: tk.Tk) -> None:
 
     root.configure(bg=BG_COLOR)
 
-    base_font = ("Segoe UI", 10)
-    heading_font = ("Segoe UI Semibold", 10)
-    button_font = ("Segoe UI Semibold", 10)
+    # Bigger base fonts for readability
+    base_font = ("Segoe UI", 11)            # was 10
+    heading_font = ("Segoe UI Semibold", 12)
+    button_font = ("Segoe UI Semibold", 11)
 
-    # Global
+    # Global defaults
     style.configure(
         ".",
         background=BG_COLOR,
@@ -44,12 +47,19 @@ def configure_dark_theme(root: tk.Tk) -> None:
     # Frames / panels
     style.configure("TFrame", background=SURFACE_BG)
     style.configure("Card.TFrame", background=HEADER_BG, relief="flat")
-    style.configure("TLabelframe", background=PANEL_BG, foreground=FG_COLOR, borderwidth=1)
+    style.configure(
+        "TLabelframe",
+        background=PANEL_BG,
+        foreground=FG_COLOR,
+        borderwidth=1,
+        padding=(8, 6),
+    )
     style.configure(
         "TLabelframe.Label",
         background=PANEL_BG,
         foreground=SUBTLE_FG,
         font=heading_font,
+        padding=(4, 0),
     )
     style.configure("TLabel", background=PANEL_BG, foreground=FG_COLOR)
 
@@ -58,7 +68,7 @@ def configure_dark_theme(root: tk.Tk) -> None:
         "TButton",
         background="#0b172b",
         foreground=FG_COLOR,
-        padding=(12, 6),
+        padding=(14, 7),        # larger hit area
         relief="flat",
         borderwidth=0,
         font=button_font,
@@ -79,14 +89,14 @@ def configure_dark_theme(root: tk.Tk) -> None:
         background=[("active", "#25b5ac")],
     )
 
-    # Treeview
+    # Treeview (list of entries)
     style.configure(
         "Treeview",
         background=FRAME_BG,
         foreground=FG_COLOR,
         fieldbackground=FRAME_BG,
         bordercolor=BORDER_COLOR,
-        rowheight=26,
+        rowheight=30,       # was 26
         font=base_font,
     )
     style.configure(
@@ -95,6 +105,7 @@ def configure_dark_theme(root: tk.Tk) -> None:
         foreground=SUBTLE_FG,
         relief="flat",
         font=heading_font,
+        padding=(6, 4),
     )
     style.map(
         "Treeview",
@@ -109,10 +120,15 @@ def configure_dark_theme(root: tk.Tk) -> None:
         foreground=ENTRY_FG,
         relief="flat",
         borderwidth=1,
-        padding=(6, 4),
+        padding=(8, 5),
     )
 
-    style.configure("TCheckbutton", background=PANEL_BG, foreground=FG_COLOR)
+    style.configure(
+        "TCheckbutton",
+        background=PANEL_BG,
+        foreground=FG_COLOR,
+        padding=(4, 2),
+    )
 
     style.configure(
         "TNotebook",
@@ -123,8 +139,8 @@ def configure_dark_theme(root: tk.Tk) -> None:
         "TNotebook.Tab",
         background="#081326",
         foreground=SUBTLE_FG,
-        padding=(18, 6),
-        font=("Segoe UI Semibold", 10),
+        padding=(20, 8),   # bigger tabs
+        font=("Segoe UI Semibold", 11),
     )
     style.map(
         "TNotebook.Tab",
@@ -137,7 +153,7 @@ def configure_dark_theme(root: tk.Tk) -> None:
         ],
     )
 
-    # Crisp at 150% scaling
+    # We keep scaling modest because fonts are already larger
     try:
         root.tk.call("tk", "scaling", 1.5)
     except tk.TclError:

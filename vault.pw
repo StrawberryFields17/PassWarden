@@ -1,0 +1,8 @@
+{
+  "kdf": "PBKDF2-HMAC-SHA256",
+  "cipher": "Fernet(AES-128-CBC+HMAC)",
+  "iterations": 200000,
+  "salt": "P/1BuWuIFP0hXNsmEbGHZg==",
+  "vault": "gAAAAABpHfV4n30Cb2yJmeqblSFvXw-DIYBWmGGjTZxmM8ZjW0J4oMl6yD7wq8DKsuf8qOcOh9ISaNiiL8_d3lzpD1r8mLkonf69X8J15TiUQ-7PxXPir1zUVgomaLVAGBU3O0oJevY_cCGs1s1WsYxazAFneEnEWxF4mMRFnbpLxYUlLDMNnxY_yXfuGQPozlJCaOD98Z4aiaACPZT3Jt-cgjuEKJdjgubekX11pwxL_KkBcKGe-sl90pdFSmt9KXU5VVHvONwTEGyjHy2ZAjo6DNnBBLDDaIpO6PeB40RXbKDaa1E_gHvW8NL94-VrIAyqTW_9oGVbjDXk_Sf54CfLo-shuKIe4C1IgXPzcdHC1tPAM9fmj8yvlZTvKgiqTUIOsxGe3tXAIC-zw4FIFc0WOaKifOQisVdr_4OdL5tzm4FWozzabMCCboshzXj9Jf4UEkaEe6fO",
+  "version": 1
+}

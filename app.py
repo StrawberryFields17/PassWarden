@@ -19,6 +19,7 @@ from ui_theme import (
     BG_COLOR,
     SUBTLE_FG,
     ACCENT_COLOR,
+    HEADER_BG,
 )
 from dialogs import MasterPasswordDialog, UnlockDialog, EntryDialog
 from password_utils import (
@@ -49,26 +50,36 @@ class PassWardenApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
+        # Configure theme and basic window properties
         configure_dark_theme(self)
         self.title(APP_NAME)
+
+        # Safe default geometry so it’s visible even without saved settings
+        self.geometry("1100x750+200+80")
 
         self.master_password = None
         self.vault = None
 
+        # Unlock or initialize vault (this can show dialogs)
         if not self._unlock_or_initialize():
             self.destroy()
             return
 
+        # If we have stored size in the vault, override the default geometry
         settings = self.vault.setdefault("settings", {})
-        self.update_idletasks()
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        width = settings.get("window_width") or int(sw * 0.8)
-        height = settings.get("window_height") or int(sh * 0.8)
-        x = (sw - width) // 2
-        y = (sh - height) // 2
-        self.geometry(f"{width}x{height}+{x}+{y}")
+        try:
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            width = settings.get("window_width") or int(sw * 0.8)
+            height = settings.get("window_height") or int(sh * 0.8)
+            x = (sw - width) // 2
+            y = (sh - height) // 2
+            self.geometry(f"{width}x{height}+{x}+{y}")
+        except Exception:
+            # If anything goes wrong, keep the safe default
+            pass
 
+        # Build UI and wire things
         self._build_ui()
         self.refresh_entries_list()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -79,6 +90,10 @@ class PassWardenApp(tk.Tk):
     # ----- unlock / initialize -----
 
     def _unlock_or_initialize(self) -> bool:
+        """
+        If vault file doesn’t exist: ask to set master password (first run).
+        If it exists: show Unlock dialog and decrypt.
+        """
         if not os.path.exists(VAULT_PATH):
             dlg = MasterPasswordDialog(self)
             self.wait_window(dlg)
@@ -109,7 +124,7 @@ class PassWardenApp(tk.Tk):
             self.vault = vault
             return True
 
-    # ----- UI -----
+    # ----- UI composition -----
 
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
@@ -153,21 +168,30 @@ class PassWardenApp(tk.Tk):
         self.config(menu=menubar)
 
     def _build_header(self):
-        header = ttk.Frame(self, style="Card.TFrame", padding=(18, 12))
+        # Top bar (NordPass-ish)
+        header = ttk.Frame(self, style="Card.TFrame", padding=(20, 14))
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
 
-        # Left section: app title
         title_row = ttk.Frame(header, style="Card.TFrame")
         title_row.grid(row=0, column=0, sticky="w")
-        dot = tk.Canvas(title_row, width=14, height=14, highlightthickness=0, bg=header["background"])
-        dot.grid(row=0, column=0, padx=(0, 8))
-        dot.create_oval(2, 2, 12, 12, fill="#32d0c5", outline="")
+
+        # Teal dot
+        dot = tk.Canvas(
+            title_row,
+            width=16,
+            height=16,
+            highlightthickness=0,
+            bd=0,
+            bg=HEADER_BG,
+        )
+        dot.grid(row=0, column=0, padx=(0, 10))
+        dot.create_oval(2, 2, 14, 14, fill="#32d0c5", outline="")
 
         title = ttk.Label(
             title_row,
             text="PassWarden",
-            font=("Segoe UI Semibold", 13),
+            font=("Segoe UI Semibold", 15),   # bigger title
         )
         title.grid(row=0, column=1, sticky="w")
 
@@ -175,13 +199,19 @@ class PassWardenApp(tk.Tk):
             header,
             text="Secure password vault — local & encrypted",
             foreground=SUBTLE_FG,
+            font=("Segoe UI", 11),
         )
         subtitle.grid(row=1, column=0, sticky="w", pady=(2, 0))
 
-        # Accent bar at bottom of header
-        accent = tk.Frame(self, height=2, bg="#32d0c5", bd=0, highlightthickness=0)
-        accent.grid(row=0, column=0, sticky="sew", pady=(0, 0))
-
+        # Thin accent bar
+        accent = tk.Frame(
+            header,
+            height=2,
+            bg=ACCENT_COLOR,
+            bd=0,
+            highlightthickness=0,
+        )
+        accent.grid(row=2, column=0, sticky="ew", pady=(10, 0))
 
     # --- Vault tab ---
 
@@ -190,20 +220,20 @@ class PassWardenApp(tk.Tk):
         parent.columnconfigure(1, weight=3)
         parent.rowconfigure(1, weight=1)
 
-        toolbar = ttk.Frame(parent, padding=(8, 8, 8, 4))
+        toolbar = ttk.Frame(parent, padding=(10, 8, 10, 4))
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
 
         ttk.Button(toolbar, text="Add", style="Primary.TButton", command=self.add_entry).grid(
-            row=0, column=0, padx=(0, 6)
+            row=0, column=0, padx=(0, 8)
         )
         ttk.Button(toolbar, text="Edit", command=self.edit_selected_entry).grid(
-            row=0, column=1, padx=6
+            row=0, column=1, padx=8
         )
         ttk.Button(toolbar, text="Delete", command=self.delete_selected_entry).grid(
-            row=0, column=2, padx=6
+            row=0, column=2, padx=8
         )
         ttk.Button(toolbar, text="Copy password", command=self.copy_selected_password).grid(
-            row=0, column=3, padx=6
+            row=0, column=3, padx=8
         )
 
         # Entries list
@@ -216,19 +246,19 @@ class PassWardenApp(tk.Tk):
         self.tree.heading("name", text="Name")
         self.tree.heading("username", text="Username")
         self.tree.heading("url", text="URL")
-        self.tree.column("name", width=220)
-        self.tree.column("username", width=160)
-        self.tree.column("url", width=260)
-        self.tree.grid(row=1, column=0, sticky="nsew", padx=(8, 4), pady=(0, 8))
+        self.tree.column("name", width=240)
+        self.tree.column("username", width=180)
+        self.tree.column("url", width=280)
+        self.tree.grid(row=1, column=0, sticky="nsew", padx=(10, 4), pady=(0, 10))
 
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.grid(row=1, column=0, sticky="nse", padx=(0, 4), pady=(0, 8))
+        scrollbar.grid(row=1, column=0, sticky="nse", padx=(0, 4), pady=(0, 10))
 
         self.tree.bind("<<TreeviewSelect>>", lambda e: self.show_selected_details())
 
-        detail_frame = ttk.LabelFrame(parent, text="Details", padding=(10, 8))
-        detail_frame.grid(row=1, column=1, sticky="nsew", padx=(4, 8), pady=(0, 8))
+        detail_frame = ttk.LabelFrame(parent, text="Details", padding=(12, 10))
+        detail_frame.grid(row=1, column=1, sticky="nsew", padx=(4, 10), pady=(0, 10))
         detail_frame.columnconfigure(1, weight=1)
         detail_frame.rowconfigure(5, weight=1)
 
@@ -238,22 +268,22 @@ class PassWardenApp(tk.Tk):
         self.detail_created = tk.StringVar()
         self.detail_updated = tk.StringVar()
 
-        ttk.Label(detail_frame, text="Name:").grid(row=0, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_name).grid(row=0, column=1, sticky="w")
+        ttk.Label(detail_frame, text="Name:").grid(row=0, column=0, sticky="e", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_name).grid(row=0, column=1, sticky="w", pady=2)
 
-        ttk.Label(detail_frame, text="Username:").grid(row=1, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_username).grid(row=1, column=1, sticky="w")
+        ttk.Label(detail_frame, text="Username:").grid(row=1, column=0, sticky="e", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_username).grid(row=1, column=1, sticky="w", pady=2)
 
-        ttk.Label(detail_frame, text="URL:").grid(row=2, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_url).grid(row=2, column=1, sticky="w")
+        ttk.Label(detail_frame, text="URL:").grid(row=2, column=0, sticky="e", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_url).grid(row=2, column=1, sticky="w", pady=2)
 
-        ttk.Label(detail_frame, text="Created:").grid(row=3, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_created).grid(row=3, column=1, sticky="w")
+        ttk.Label(detail_frame, text="Created:").grid(row=3, column=0, sticky="e", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_created).grid(row=3, column=1, sticky="w", pady=2)
 
-        ttk.Label(detail_frame, text="Updated:").grid(row=4, column=0, sticky="e")
-        ttk.Label(detail_frame, textvariable=self.detail_updated).grid(row=4, column=1, sticky="w")
+        ttk.Label(detail_frame, text="Updated:").grid(row=4, column=0, sticky="e", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_updated).grid(row=4, column=1, sticky="w", pady=2)
 
-        ttk.Label(detail_frame, text="Notes:").grid(row=5, column=0, sticky="ne")
+        ttk.Label(detail_frame, text="Notes:").grid(row=5, column=0, sticky="ne", pady=2)
         self.detail_notes = tk.Text(
             detail_frame,
             width=40,
@@ -264,7 +294,7 @@ class PassWardenApp(tk.Tk):
             relief="flat",
             borderwidth=1,
         )
-        self.detail_notes.grid(row=5, column=1, sticky="nsew")
+        self.detail_notes.grid(row=5, column=1, sticky="nsew", pady=2)
 
     # --- Tools tab ---
 
@@ -273,12 +303,12 @@ class PassWardenApp(tk.Tk):
         parent.columnconfigure(1, weight=1)
         parent.rowconfigure(0, weight=1)
 
-        generator_frame = ttk.LabelFrame(parent, text="Password generator", padding=(14, 10))
-        generator_frame.grid(row=0, column=0, sticky="nsew", padx=(8, 4), pady=8)
+        generator_frame = ttk.LabelFrame(parent, text="Password generator", padding=(16, 12))
+        generator_frame.grid(row=0, column=0, sticky="nsew", padx=(10, 4), pady=10)
         self._build_generator_panel(generator_frame)
 
-        analyzer_frame = ttk.LabelFrame(parent, text="Password analyzer", padding=(14, 10))
-        analyzer_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 8), pady=8)
+        analyzer_frame = ttk.LabelFrame(parent, text="Password analyzer", padding=(16, 12))
+        analyzer_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 10), pady=10)
         self._build_analyzer_panel(analyzer_frame)
 
     # ----- Generator panel -----
@@ -295,15 +325,15 @@ class PassWardenApp(tk.Tk):
         self.gen_entropy_var = tk.StringVar(value="")
         self.gen_crack_var = tk.StringVar(value="")
 
-        ttk.Label(frame, text="Generated password:").grid(row=0, column=0, sticky="w")
+        ttk.Label(frame, text="Generated password:").grid(row=0, column=0, sticky="w", pady=(0, 4))
         self.gen_entry = ttk.Entry(frame, textvariable=self.gen_password_var, width=50)
-        self.gen_entry.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(2, 6))
+        self.gen_entry.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
 
         ttk.Label(frame, textvariable=self.gen_entropy_var, foreground=SUBTLE_FG).grid(
-            row=2, column=0, columnspan=3, sticky="w"
+            row=2, column=0, columnspan=3, sticky="w", pady=(0, 2)
         )
         ttk.Label(frame, textvariable=self.gen_crack_var, foreground=SUBTLE_FG).grid(
-            row=3, column=0, columnspan=3, sticky="w", pady=(0, 8)
+            row=3, column=0, columnspan=3, sticky="w", pady=(0, 10)
         )
 
         ttk.Label(frame, text="Length:").grid(row=4, column=0, sticky="w")
@@ -321,7 +351,7 @@ class PassWardenApp(tk.Tk):
             frame, from_=8, to=64, orient="horizontal", command=self._gen_on_scale
         )
         self.gen_length_scale.set(self.gen_length_var.get())
-        self.gen_length_scale.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(4, 10))
+        self.gen_length_scale.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(4, 12))
 
         row = 6
         ttk.Checkbutton(
@@ -354,13 +384,13 @@ class PassWardenApp(tk.Tk):
         row += 1
 
         btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=row, column=0, columnspan=3, sticky="e", pady=(12, 2))
+        btn_frame.grid(row=row, column=0, columnspan=3, sticky="e", pady=(14, 2))
 
         ttk.Button(btn_frame, text="Regenerate", command=self.update_generator).grid(
-            row=0, column=0, padx=6
+            row=0, column=0, padx=8
         )
         ttk.Button(btn_frame, text="Copy", style="Primary.TButton", command=self.gen_copy).grid(
-            row=0, column=1, padx=6
+            row=0, column=1, padx=8
         )
 
         self.update_generator()
@@ -428,14 +458,14 @@ class PassWardenApp(tk.Tk):
         self.an_entropy_var = tk.StringVar(value="-")
         self.an_crack_var = tk.StringVar(value="-")
 
-        ttk.Label(frame, text="Password:").grid(row=0, column=0, sticky="e", pady=2, padx=(0, 8))
+        ttk.Label(frame, text="Password:").grid(row=0, column=0, sticky="e", pady=4, padx=(0, 8))
         self.an_entry = ttk.Entry(frame, textvariable=self.an_pwd_var, show="*", width=32)
-        self.an_entry.grid(row=0, column=1, sticky="ew", pady=2)
+        self.an_entry.grid(row=0, column=1, sticky="ew", pady=4)
         self.an_entry.bind("<KeyRelease>", lambda e: self.update_analyzer())
 
         ttk.Checkbutton(
             frame, text="Show", variable=self.an_show_var, command=self._an_toggle_show
-        ).grid(row=0, column=2, sticky="w")
+        ).grid(row=0, column=2, sticky="w", pady=4)
 
         row = 1
         ttk.Label(frame, text="Length:").grid(row=row, column=0, sticky="e", pady=2, padx=(0, 8))
@@ -459,7 +489,7 @@ class PassWardenApp(tk.Tk):
         ttk.Label(frame, text="Brute force time:").grid(
             row=row, column=0, sticky="e", pady=2, padx=(0, 8)
         )
-        ttk.Label(frame, textvariable=self.an_crack_var, wraplength=260).grid(
+        ttk.Label(frame, textvariable=self.an_crack_var, wraplength=280).grid(
             row=row, column=1, columnspan=2, sticky="w", pady=2
         )
         row += 1
