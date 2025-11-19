@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 
 SYMBOLS = "!@#$%^&*()-_=+[]{};:,.?/"
-GUESSES_PER_SECOND = 1e10  # assumed attacker speed (10 billion guesses/s)
+GUESSES_PER_SECOND = 1e10  # 10 billion guesses per second
 
 
 def generate_password(
@@ -15,9 +15,6 @@ def generate_password(
     use_digits: bool = True,
     use_symbols: bool = True,
 ) -> str:
-    """
-    Generate a random password of given length with selected character sets.
-    """
     if not any([use_lower, use_upper, use_digits, use_symbols]):
         raise ValueError("At least one character set must be selected.")
 
@@ -35,9 +32,6 @@ def generate_password(
 
 
 def estimate_entropy_bits(length: int, alphabet_size: int) -> float:
-    """
-    Rough entropy: log2(alphabet_size ** length) = length * log2(alphabet_size).
-    """
     if length <= 0 or alphabet_size <= 1:
         return 0.0
     return length * math.log2(alphabet_size)
@@ -55,19 +49,12 @@ def classify_strength(bits: float) -> str:
 
 
 def estimate_crack_time_seconds(bits: float, guesses_per_second: float = GUESSES_PER_SECOND) -> float:
-    """
-    Average brute force time for a password with given entropy (bits).
-    On average attacker needs 2^(bits-1) guesses.
-    """
     if bits <= 0 or guesses_per_second <= 0:
         return 0.0
     return math.pow(2.0, bits - 1.0) / guesses_per_second
 
 
 def format_duration(seconds: float) -> str:
-    """
-    Convert seconds into a human-readable time span.
-    """
     if seconds <= 0:
         return "instant"
     if seconds < 1:
@@ -115,10 +102,6 @@ class PasswordAnalysis:
 
 
 def analyze_arbitrary_password(password: str) -> PasswordAnalysis:
-    """
-    Estimate entropy & crack time based on what character classes are present
-    in the given password.
-    """
     length = len(password)
     if length == 0:
         return PasswordAnalysis(password, 0, 0, 0.0, 0.0)
@@ -137,5 +120,4 @@ def analyze_arbitrary_password(password: str) -> PasswordAnalysis:
 
     bits = estimate_entropy_bits(length, alphabet_size)
     seconds = estimate_crack_time_seconds(bits)
-
     return PasswordAnalysis(password, length, alphabet_size, bits, seconds)

@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
 
-# Color palette (dark + neon hacker green accent)
 BG_COLOR = "#121212"
 FRAME_BG = "#1E1E1E"
 FG_COLOR = "#F5F5F5"
@@ -12,9 +11,6 @@ ENTRY_FG = FG_COLOR
 
 
 def configure_dark_theme(root: tk.Tk) -> None:
-    """
-    Configure a dark modern theme with decent defaults for fonts and colors.
-    """
     style = ttk.Style(root)
     try:
         style.theme_use("clam")
@@ -32,12 +28,10 @@ def configure_dark_theme(root: tk.Tk) -> None:
         fieldbackground=ENTRY_BG,
         font=default_font,
     )
-
     style.configure("TFrame", background=BG_COLOR)
     style.configure("TLabelframe", background=BG_COLOR, foreground=FG_COLOR)
     style.configure("TLabelframe.Label", background=BG_COLOR, foreground=FG_COLOR)
     style.configure("TLabel", background=BG_COLOR, foreground=FG_COLOR)
-
     style.configure(
         "TButton",
         background=FRAME_BG,
@@ -50,7 +44,6 @@ def configure_dark_theme(root: tk.Tk) -> None:
         background=[("active", "#2A2A2A")],
         foreground=[("disabled", "#666666")],
     )
-
     style.configure(
         "Treeview",
         background=FRAME_BG,
@@ -64,23 +57,10 @@ def configure_dark_theme(root: tk.Tk) -> None:
         background=[("selected", ACCENT_COLOR)],
         foreground=[("selected", "#000000")],
     )
+    style.configure("TEntry", fieldbackground=ENTRY_BG, foreground=ENTRY_FG, relief="flat")
+    style.configure("TCheckbutton", background=BG_COLOR, foreground=FG_COLOR)
 
-    style.configure(
-        "TEntry",
-        fieldbackground=ENTRY_BG,
-        foreground=ENTRY_FG,
-        relief="flat",
-    )
-
-    style.configure(
-        "TCheckbutton",
-        background=BG_COLOR,
-        foreground=FG_COLOR,
-    )
-
-    # Decent scaling for HiDPI if Tk doesn't do it itself
     try:
-        # 1.5 is nice at 150% Windows scaling
-        root.tk.call("tk", "scaling", 1.5)
+        root.tk.call("tk", "scaling", 1.5)  # good for 150% display scale
     except tk.TclError:
         pass
