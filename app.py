@@ -21,7 +21,7 @@ from ui_theme import (
     ACCENT_COLOR,
     HEADER_BG,
 )
-from dialogs import MasterPasswordDialog, UnlockDialog, EntryDialog
+from dialogs import EntryDialog
 from password_utils import (
     generate_password,
     estimate_entropy_bits,
@@ -50,22 +50,217 @@ class PassWardenApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        # Configure theme and basic window properties
         configure_dark_theme(self)
         self.title(APP_NAME)
 
-        # Safe default geometry so it’s visible even without saved settings
+        # Safe default geometry so it’s visible
         self.geometry("1100x750+200+80")
 
-        self.master_password = None
-        self.vault = None
+        self.master_password: str | None = None
+        self.vault: dict | None = None
 
-        # Unlock or initialize vault (this can show dialogs)
-        if not self._unlock_or_initialize():
-            self.destroy()
+        # Placeholder for auth screen frame
+        self.auth_frame: ttk.Frame | None = None
+
+        # Decide whether to show first-run screen or unlock screen
+        if not os.path.exists(VAULT_PATH):
+            self._build_first_run_screen()
+        else:
+            self._build_unlock_screen()
+
+    # ------------------------------------------------------------------
+    #  AUTH SCREENS (IN MAIN WINDOW)
+    # ------------------------------------------------------------------
+
+    def _clear_auth_frame(self):
+        if self.auth_frame is not None:
+            self.auth_frame.destroy()
+            self.auth_frame = None
+
+    def _build_first_run_screen(self):
+        """Shown only when no vault file exists yet."""
+        self._clear_auth_frame()
+
+        frame = ttk.Frame(self, padding=32)
+        self.auth_frame = frame
+        frame.grid(row=0, column=0, sticky="nsew")
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        # Center grid
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=2)
+
+        header = ttk.Label(
+            frame,
+            text="Welcome to PassWarden",
+            font=("Segoe UI Semibold", 18),
+        )
+        header.grid(row=0, column=0, columnspan=2, sticky="w", pady=(10, 4))
+
+        subtitle = ttk.Label(
+            frame,
+            text="Create a master password to encrypt your vault.",
+            foreground=SUBTLE_FG,
+            font=("Segoe UI", 11),
+        )
+        subtitle.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 20))
+
+        self.fp_pass_var = tk.StringVar()
+        self.fp_confirm_var = tk.StringVar()
+
+        row = 2
+        ttk.Label(frame, text="Master password:").grid(
+            row=row, column=0, sticky="e", pady=8, padx=(0, 12)
+        )
+        ttk.Entry(frame, textvariable=self.fp_pass_var, show="*", width=40).grid(
+            row=row, column=1, sticky="w", pady=8
+        )
+        row += 1
+
+        ttk.Label(frame, text="Confirm:").grid(
+            row=row, column=0, sticky="e", pady=8, padx=(0, 12)
+        )
+        ttk.Entry(frame, textvariable=self.fp_confirm_var, show="*", width=40).grid(
+            row=row, column=1, sticky="w", pady=8
+        )
+        row += 1
+
+        info = ttk.Label(
+            frame,
+            text="This password cannot be recovered. If you lose it, your data is lost.",
+            foreground=SUBTLE_FG,
+            wraplength=480,
+            justify="left",
+        )
+        info.grid(row=row, column=0, columnspan=2, sticky="w", pady=(6, 20))
+        row += 1
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=row, column=0, columnspan=2, sticky="e")
+
+        ttk.Button(btn_frame, text="Exit", command=self.on_close).grid(
+            row=0, column=0, padx=8
+        )
+        ttk.Button(
+            btn_frame,
+            text="Create vault",
+            style="Primary.TButton",
+            command=self._on_first_run_create,
+        ).grid(row=0, column=1, padx=8)
+
+    def _on_first_run_create(self):
+        p1 = self.fp_pass_var.get()
+        p2 = self.fp_confirm_var.get()
+
+        if not p1:
+            messagebox.showerror("Error", "Password cannot be empty.", parent=self)
+            return
+        if len(p1) < 8:
+            messagebox.showerror("Error", "Use at least 8 characters.", parent=self)
+            return
+        if p1 != p2:
+            messagebox.showerror("Error", "Passwords do not match.", parent=self)
             return
 
-        # If we have stored size in the vault, override the default geometry
+        self.master_password = p1
+        self.vault = new_empty_vault()
+        save_vault_file(VAULT_PATH, self.vault, self.master_password)
+
+        # Now build the main UI
+        self._clear_auth_frame()
+        self._post_unlock_setup()
+
+    def _build_unlock_screen(self):
+        """Shown when a vault already exists and we need the master password."""
+        self._clear_auth_frame()
+
+        frame = ttk.Frame(self, padding=32)
+        self.auth_frame = frame
+        frame.grid(row=0, column=0, sticky="nsew")
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=2)
+
+        header = ttk.Label(
+            frame,
+            text="Unlock PassWarden",
+            font=("Segoe UI Semibold", 18),
+        )
+        header.grid(row=0, column=0, columnspan=2, sticky="w", pady=(10, 4))
+
+        subtitle = ttk.Label(
+            frame,
+            text="Enter your master password to decrypt your vault.",
+            foreground=SUBTLE_FG,
+            font=("Segoe UI", 11),
+        )
+        subtitle.grid(row=1, column=0, columnspan=2, sticky="w", pady=(0, 20))
+
+        self.ul_pass_var = tk.StringVar()
+
+        row = 2
+        ttk.Label(frame, text="Master password:").grid(
+            row=row, column=0, sticky="e", pady=8, padx=(0, 12)
+        )
+        entry = ttk.Entry(frame, textvariable=self.ul_pass_var, show="*", width=40)
+        entry.grid(row=row, column=1, sticky="w", pady=8)
+        entry.focus_set()
+        row += 1
+
+        info = ttk.Label(
+            frame,
+            text="If the password is wrong, the vault cannot be decrypted.",
+            foreground=SUBTLE_FG,
+            wraplength=480,
+            justify="left",
+        )
+        info.grid(row=row, column=0, columnspan=2, sticky="w", pady=(6, 20))
+        row += 1
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=row, column=0, columnspan=2, sticky="e")
+
+        ttk.Button(btn_frame, text="Exit", command=self.on_close).grid(
+            row=0, column=0, padx=8
+        )
+        ttk.Button(
+            btn_frame,
+            text="Unlock",
+            style="Primary.TButton",
+            command=self._on_unlock,
+        ).grid(row=0, column=1, padx=8)
+
+    def _on_unlock(self):
+        password = self.ul_pass_var.get()
+        if not password:
+            messagebox.showerror("Error", "Password cannot be empty.", parent=self)
+            return
+        try:
+            vault = load_vault_file(VAULT_PATH, password)
+        except (InvalidToken, KeyError, json.JSONDecodeError):
+            messagebox.showerror(
+                "Error",
+                "Unable to decrypt vault. Master password is incorrect "
+                "or file is corrupted.",
+                parent=self,
+            )
+            return
+
+        self.master_password = password
+        self.vault = vault
+        self._clear_auth_frame()
+        self._post_unlock_setup()
+
+    # ------------------------------------------------------------------
+    #  MAIN UI AFTER UNLOCK
+    # ------------------------------------------------------------------
+
+    def _post_unlock_setup(self):
+        """Called once we have a decrypted vault + master password."""
+        # Restore saved size if available
         settings = self.vault.setdefault("settings", {})
         try:
             sw = self.winfo_screenwidth()
@@ -76,55 +271,15 @@ class PassWardenApp(tk.Tk):
             y = (sh - height) // 2
             self.geometry(f"{width}x{height}+{x}+{y}")
         except Exception:
-            # If anything goes wrong, keep the safe default
             pass
 
-        # Build UI and wire things
+        # Build UI
         self._build_ui()
         self.refresh_entries_list()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
         if UPDATE_INFO_URL:
             self.after(3000, lambda: self.check_for_updates(silent=True))
-
-    # ----- unlock / initialize -----
-
-    def _unlock_or_initialize(self) -> bool:
-        """
-        If vault file doesn’t exist: ask to set master password (first run).
-        If it exists: show Unlock dialog and decrypt.
-        """
-        if not os.path.exists(VAULT_PATH):
-            dlg = MasterPasswordDialog(self)
-            self.wait_window(dlg)
-            if dlg.result is None:
-                return False
-            self.master_password = dlg.result
-            self.vault = new_empty_vault()
-            save_vault_file(VAULT_PATH, self.vault, self.master_password)
-            return True
-
-        while True:
-            dlg = UnlockDialog(self)
-            self.wait_window(dlg)
-            if dlg.result is None:
-                return False
-            password = dlg.result
-            try:
-                vault = load_vault_file(VAULT_PATH, password)
-            except (InvalidToken, KeyError, json.JSONDecodeError):
-                messagebox.showerror(
-                    "Error",
-                    "Unable to decrypt vault. Master password is incorrect "
-                    "or file is corrupted.",
-                    parent=self,
-                )
-                continue
-            self.master_password = password
-            self.vault = vault
-            return True
-
-    # ----- UI composition -----
 
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
@@ -144,6 +299,10 @@ class PassWardenApp(tk.Tk):
 
         self._build_vault_tab(self.vault_tab)
         self._build_tools_tab(self.tools_tab)
+
+    # ------------------------------------------------------------------
+    #  MENU + HEADER
+    # ------------------------------------------------------------------
 
     def _build_menu(self):
         menubar = tk.Menu(self, bg=BG_COLOR, fg="white", tearoff=False)
@@ -191,7 +350,7 @@ class PassWardenApp(tk.Tk):
         title = ttk.Label(
             title_row,
             text="PassWarden",
-            font=("Segoe UI Semibold", 15),   # bigger title
+            font=("Segoe UI Semibold", 15),
         )
         title.grid(row=0, column=1, sticky="w")
 
@@ -213,7 +372,9 @@ class PassWardenApp(tk.Tk):
         )
         accent.grid(row=2, column=0, sticky="ew", pady=(10, 0))
 
-    # --- Vault tab ---
+    # ------------------------------------------------------------------
+    #  VAULT TAB
+    # ------------------------------------------------------------------
 
     def _build_vault_tab(self, parent: ttk.Frame):
         parent.columnconfigure(0, weight=2)
@@ -269,19 +430,29 @@ class PassWardenApp(tk.Tk):
         self.detail_updated = tk.StringVar()
 
         ttk.Label(detail_frame, text="Name:").grid(row=0, column=0, sticky="e", pady=2)
-        ttk.Label(detail_frame, textvariable=self.detail_name).grid(row=0, column=1, sticky="w", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_name).grid(
+            row=0, column=1, sticky="w", pady=2
+        )
 
         ttk.Label(detail_frame, text="Username:").grid(row=1, column=0, sticky="e", pady=2)
-        ttk.Label(detail_frame, textvariable=self.detail_username).grid(row=1, column=1, sticky="w", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_username).grid(
+            row=1, column=1, sticky="w", pady=2
+        )
 
         ttk.Label(detail_frame, text="URL:").grid(row=2, column=0, sticky="e", pady=2)
-        ttk.Label(detail_frame, textvariable=self.detail_url).grid(row=2, column=1, sticky="w", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_url).grid(
+            row=2, column=1, sticky="w", pady=2
+        )
 
         ttk.Label(detail_frame, text="Created:").grid(row=3, column=0, sticky="e", pady=2)
-        ttk.Label(detail_frame, textvariable=self.detail_created).grid(row=3, column=1, sticky="w", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_created).grid(
+            row=3, column=1, sticky="w", pady=2
+        )
 
         ttk.Label(detail_frame, text="Updated:").grid(row=4, column=0, sticky="e", pady=2)
-        ttk.Label(detail_frame, textvariable=self.detail_updated).grid(row=4, column=1, sticky="w", pady=2)
+        ttk.Label(detail_frame, textvariable=self.detail_updated).grid(
+            row=4, column=1, sticky="w", pady=2
+        )
 
         ttk.Label(detail_frame, text="Notes:").grid(row=5, column=0, sticky="ne", pady=2)
         self.detail_notes = tk.Text(
@@ -296,7 +467,9 @@ class PassWardenApp(tk.Tk):
         )
         self.detail_notes.grid(row=5, column=1, sticky="nsew", pady=2)
 
-    # --- Tools tab ---
+    # ------------------------------------------------------------------
+    #  TOOLS TAB
+    # ------------------------------------------------------------------
 
     def _build_tools_tab(self, parent: ttk.Frame):
         parent.columnconfigure(0, weight=1)
@@ -428,7 +601,7 @@ class PassWardenApp(tk.Tk):
             (26 if self.gen_use_lower.get() else 0)
             + (26 if self.gen_use_upper.get() else 0)
             + (10 if self.gen_use_digits.get() else 0)
-            + (32 if self.gen_use_symbols.get() else 0)  # rough symbol count
+            + (32 if self.gen_use_symbols.get() else 0)
         )
         bits = estimate_entropy_bits(self.gen_length_var.get(), alphabet_size)
         seconds = estimate_crack_time_seconds(bits)
@@ -518,7 +691,9 @@ class PassWardenApp(tk.Tk):
         self.an_entropy_var.set(f"{analysis.bits:.1f} bits ({analysis.strength_label})")
         self.an_crack_var.set(analysis.crack_duration_text)
 
-    # ----- Vault helpers & actions -----
+    # ------------------------------------------------------------------
+    #  VAULT OPERATIONS
+    # ------------------------------------------------------------------
 
     def _save_vault(self):
         save_vault_file(VAULT_PATH, self.vault, self.master_password)
@@ -653,7 +828,9 @@ class PassWardenApp(tk.Tk):
         self.clipboard_append(pwd)
         messagebox.showinfo("Copied", "Password copied to clipboard.", parent=self)
 
-    # ----- updates -----
+    # ------------------------------------------------------------------
+    #  UPDATES + CLOSE
+    # ------------------------------------------------------------------
 
     def check_for_updates(self, silent=False):
         if not UPDATE_INFO_URL:
@@ -699,16 +876,16 @@ class PassWardenApp(tk.Tk):
                     parent=self,
                 )
 
-    # ----- closing -----
-
     def on_close(self):
-        try:
-            size = self.geometry().split("+")[0]
-            width, height = size.split("x")
-            settings = self.vault.setdefault("settings", {})
-            settings["window_width"] = int(width)
-            settings["window_height"] = int(height)
-        except Exception:
-            pass
-        self._save_vault()
+        # Persist window size for next run
+        if self.vault is not None:
+            try:
+                size = self.geometry().split("+")[0]
+                width, height = size.split("x")
+                settings = self.vault.setdefault("settings", {})
+                settings["window_width"] = int(width)
+                settings["window_height"] = int(height)
+            except Exception:
+                pass
+            self._save_vault()
         self.destroy()

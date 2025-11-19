@@ -10,36 +10,23 @@ def center_window(
     height: int | None = None,
 ) -> None:
     """
-    Center a window over its parent if it has one, otherwise on the screen.
+    Center a window on the screen.
 
-    If width/height are given we use those, otherwise we use the window's
-    natural size as computed by Tk.
+    If width/height are not given, we use the window's natural size as
+    computed by Tk after layouts have been updated.
     """
     win.update_idletasks()
 
-    # Determine target size
     if width is None or height is None:
         w = win.winfo_width()
         h = win.winfo_height()
     else:
         w, h = width, height
 
-    # Prefer centering over the parent (main PassWarden window)
-    parent = win.master if isinstance(win, tk.Toplevel) else None
-    if parent is not None and isinstance(parent, (tk.Tk, tk.Toplevel)):
-        parent.update_idletasks()
-        px = parent.winfo_rootx()
-        py = parent.winfo_rooty()
-        pw = parent.winfo_width()
-        ph = parent.winfo_height()
-
-        x = px + (pw - w) // 2
-        y = py + (ph - h) // 2
-    else:
-        sw = win.winfo_screenwidth()
-        sh = win.winfo_screenheight()
-        x = (sw - w) // 2
-        y = (sh - h) // 2
+    sw = win.winfo_screenwidth()
+    sh = win.winfo_screenheight()
+    x = (sw - w) // 2
+    y = (sh - h) // 2
 
     win.geometry(f"{w}x{h}+{x}+{y}")
 
@@ -64,10 +51,10 @@ class MasterPasswordDialog(tk.Toplevel):
 
         self._build_ui()
 
-        # Make it modal over the main window
+        # Modal over main window
         self.transient(parent)
         self.grab_set()
-        center_window(self)  # natural size, centered over parent
+        center_window(self)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
     def _build_ui(self) -> None:
