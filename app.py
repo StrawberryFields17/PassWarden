@@ -22,7 +22,7 @@ from ui_theme import (
     ACCENT_COLOR,
     HEADER_BG,
 )
-from dialogs import EntryDialog
+from dialogs import EntryDialog, ChangeMasterPasswordDialog
 from password_utils import (
     generate_password,
     estimate_entropy_bits,
@@ -50,7 +50,6 @@ def get_vault_path() -> str:
 
 
 VAULT_PATH = get_vault_path()
-
 
 UPDATE_INFO_URL = (
     "https://raw.githubusercontent.com/StrawberryFields17/PassWarden/main/update.json"
@@ -324,6 +323,11 @@ class PassWardenApp(tk.Tk):
 
         file_menu = tk.Menu(menubar, tearoff=False)
         file_menu.add_command(label="Lock && exit", command=self.on_close)
+        file_menu.add_separator()
+        file_menu.add_command(
+            label="Change master password...",
+            command=self.change_master_password,
+        )
         menubar.add_cascade(label="File", menu=file_menu)
 
         help_menu = tk.Menu(menubar, tearoff=False)
@@ -891,6 +895,46 @@ class PassWardenApp(tk.Tk):
         self.clipboard_clear()
         self.clipboard_append(pwd)
         messagebox.showinfo("Copied", "Password copied to clipboard.", parent=self)
+
+    # ------------------------------------------------------------------
+    #  CHANGE MASTER PASSWORD
+    # ------------------------------------------------------------------
+
+    def change_master_password(self):
+        """Let the user update the master password while the vault is unlocked."""
+        if self.vault is None or self.master_password is None:
+            messagebox.showerror(
+                "Error",
+                "Vault is not loaded. Unlock the vault first.",
+                parent=self,
+            )
+            return
+
+        dlg = ChangeMasterPasswordDialog(self)
+        self.wait_window(dlg)
+        if dlg.result is None:
+            return
+
+        current = dlg.result["current"]
+        new_pw = dlg.result["new"]
+
+        if current != self.master_password:
+            messagebox.showerror(
+                "Error",
+                "Current master password is incorrect.",
+                parent=self,
+            )
+            return
+
+        # Update in memory and re-encrypt vault with new password
+        self.master_password = new_pw
+        self._save_vault()
+
+        messagebox.showinfo(
+            "Master password changed",
+            "Your master password has been updated.",
+            parent=self,
+        )
 
     # ------------------------------------------------------------------
     #  UPDATES + CLOSE
