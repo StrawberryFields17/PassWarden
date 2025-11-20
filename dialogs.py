@@ -51,7 +51,7 @@ class EntryDialog(tk.Toplevel):
         main.columnconfigure(1, weight=1)
 
         row = 0
-        ttk.Label(main, text="Name:").grid(
+        ttk.Label(main, text="Name").grid(
             row=row, column=0, sticky="e", pady=4, padx=(0, 10)
         )
         ttk.Entry(main, textvariable=self.name_var, width=42).grid(
@@ -59,7 +59,7 @@ class EntryDialog(tk.Toplevel):
         )
         row += 1
 
-        ttk.Label(main, text="Username:").grid(
+        ttk.Label(main, text="Username / email").grid(
             row=row, column=0, sticky="e", pady=4, padx=(0, 10)
         )
         ttk.Entry(main, textvariable=self.username_var, width=42).grid(
@@ -67,7 +67,7 @@ class EntryDialog(tk.Toplevel):
         )
         row += 1
 
-        ttk.Label(main, text="Password:").grid(
+        ttk.Label(main, text="Password").grid(
             row=row, column=0, sticky="e", pady=4, padx=(0, 10)
         )
         ttk.Entry(main, textvariable=self.password_var, show="*", width=42).grid(
@@ -75,7 +75,7 @@ class EntryDialog(tk.Toplevel):
         )
         row += 1
 
-        ttk.Label(main, text="URL:").grid(
+        ttk.Label(main, text="Website / URL").grid(
             row=row, column=0, sticky="e", pady=4, padx=(0, 10)
         )
         ttk.Entry(main, textvariable=self.url_var, width=42).grid(
@@ -83,7 +83,7 @@ class EntryDialog(tk.Toplevel):
         )
         row += 1
 
-        ttk.Label(main, text="Notes:").grid(
+        ttk.Label(main, text="Notes").grid(
             row=row, column=0, sticky="ne", pady=4, padx=(0, 10)
         )
         notes = tk.Text(
@@ -109,7 +109,7 @@ class EntryDialog(tk.Toplevel):
         )
         ttk.Button(
             btn_frame,
-            text="Save",
+            text="Save entry",
             style="Primary.TButton",
             command=self.on_ok,
         ).grid(row=0, column=1, padx=8)
@@ -117,7 +117,11 @@ class EntryDialog(tk.Toplevel):
     def on_ok(self) -> None:
         name = self.name_var.get().strip()
         if not name:
-            messagebox.showerror("Error", "Name is required.", parent=self)
+            messagebox.showerror(
+                "Missing name",
+                "Give this entry a name so you can find it later.",
+                parent=self,
+            )
             return
 
         self.notes_var.set(self.notes_widget.get("1.0", "end").rstrip("\n"))
@@ -176,14 +180,17 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
 
         header = ttk.Label(
             main,
-            text="Change master password",
+            text="Update your master password",
             font=("Segoe UI Semibold", 13),
         )
         header.grid(row=0, column=0, columnspan=2, sticky="w")
 
         subtitle = ttk.Label(
             main,
-            text="Enter your current master password and choose a new one.",
+            text=(
+                "Use a long, unique password to keep your vault safe.\n"
+                "You’ll need this password next time you unlock PassWarden."
+            ),
             foreground=SUBTLE_FG,
             wraplength=420,
             justify="left",
@@ -191,7 +198,7 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         subtitle.grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 14))
 
         row = 2
-        ttk.Label(main, text="Current password:").grid(
+        ttk.Label(main, text="Current password").grid(
             row=row, column=0, sticky="e", pady=6, padx=(0, 10)
         )
         ttk.Entry(main, textvariable=self.current_var, show="*", width=34).grid(
@@ -199,7 +206,7 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         )
         row += 1
 
-        ttk.Label(main, text="New password:").grid(
+        ttk.Label(main, text="New password").grid(
             row=row, column=0, sticky="e", pady=6, padx=(0, 10)
         )
         ttk.Entry(main, textvariable=self.new_var, show="*", width=34).grid(
@@ -207,7 +214,7 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         )
         row += 1
 
-        ttk.Label(main, text="Confirm new:").grid(
+        ttk.Label(main, text="Confirm new password").grid(
             row=row, column=0, sticky="e", pady=6, padx=(0, 10)
         )
         ttk.Entry(main, textvariable=self.confirm_var, show="*", width=34).grid(
@@ -215,15 +222,25 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         )
         row += 1
 
+        helper = ttk.Label(
+            main,
+            text="Tip: a mix of words, numbers and symbols works best.",
+            foreground=SUBTLE_FG,
+            wraplength=420,
+            justify="left",
+        )
+        helper.grid(row=row, column=0, columnspan=2, sticky="w", pady=(4, 10))
+        row += 1
+
         btn_frame = ttk.Frame(main)
-        btn_frame.grid(row=row, column=0, columnspan=2, pady=(18, 0), sticky="e")
+        btn_frame.grid(row=row, column=0, columnspan=2, pady=(12, 0), sticky="e")
 
         ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).grid(
             row=0, column=0, padx=8
         )
         ttk.Button(
             btn_frame,
-            text="Change",
+            text="Save new password",
             style="Primary.TButton",
             command=self.on_ok,
         ).grid(row=0, column=1, padx=8)
@@ -234,20 +251,32 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         confirm = self.confirm_var.get()
 
         if not current:
-            messagebox.showerror("Error", "Current password cannot be empty.", parent=self)
+            messagebox.showerror(
+                "Current password required",
+                "Enter your current master password to continue.",
+                parent=self,
+            )
             return
         if not new:
-            messagebox.showerror("Error", "New password cannot be empty.", parent=self)
+            messagebox.showerror(
+                "New password required",
+                "Choose a new master password.",
+                parent=self,
+            )
             return
         if len(new) < 8:
             messagebox.showerror(
-                "Error",
-                "New password must be at least 8 characters long.",
+                "Password too short",
+                "For your security, use at least 8 characters.",
                 parent=self,
             )
             return
         if new != confirm:
-            messagebox.showerror("Error", "New passwords do not match.", parent=self)
+            messagebox.showerror(
+                "Passwords don’t match",
+                "The new passwords don’t match. Please try again.",
+                parent=self,
+            )
             return
 
         self.result = {"current": current, "new": new}
