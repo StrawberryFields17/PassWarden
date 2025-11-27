@@ -91,6 +91,7 @@ class PassWardenApp(tk.Tk):
 
         self.master_password: str | None = None
         self.vault: dict | None = None
+        self.settings: dict | None = None
 
         # Placeholder for auth screen frame
         self.auth_frame: ttk.Frame | None = None
@@ -203,6 +204,7 @@ class PassWardenApp(tk.Tk):
 
         self.master_password = p1
         self.vault = new_empty_vault()
+        self.settings = self.vault.setdefault("settings", {})
         save_vault_file(VAULT_PATH, self.vault, self.master_password)
 
         # Best-effort: clear the entered passwords from the auth screen
@@ -295,6 +297,7 @@ class PassWardenApp(tk.Tk):
 
         self.master_password = password
         self.vault = vault
+        self.settings = self.vault.setdefault("settings", {})
 
         # Best-effort: clear the typed unlock password
         if self.ul_pass_var is not None:
@@ -310,7 +313,8 @@ class PassWardenApp(tk.Tk):
     def _post_unlock_setup(self):
         """Called once we have a decrypted vault + master password."""
         # Restore saved size if available
-        settings = self.vault.setdefault("settings", {})
+        self.settings = self.vault.setdefault("settings", self.settings or {})
+        settings = self.settings
         try:
             sw = self.winfo_screenwidth()
             sh = self.winfo_screenheight()
@@ -636,6 +640,39 @@ class PassWardenApp(tk.Tk):
         ).grid(row=row, column=0, sticky="w")
         row += 1
 
+        # Clipboard timeout configuration
+        timeout_ms = 15000
+        if self.settings is not None:
+            timeout_ms = int(self.settings.get("clipboard_timeout_ms", timeout_ms))
+        timeout_seconds = max(5, timeout_ms // 1000)
+
+        ttk.Label(frame, text="Clipboard auto-clear:").grid(
+            row=row, column=0, sticky="w", pady=(10, 0)
+        )
+        self.clipboard_timeout_var = tk.IntVar(value=timeout_seconds)
+        self.clipboard_timeout_spin = ttk.Spinbox(
+            frame,
+            from_=5,
+            to=300,
+            textvariable=self.clipboard_timeout_var,
+            width=5,
+            command=self._on_clipboard_timeout_changed,
+        )
+        self.clipboard_timeout_spin.grid(row=row, column=1, sticky="w", pady=(10, 0))
+        row += 1
+
+        ttk.Label(
+            frame,
+            text=(
+                "Passwords copied to the clipboard will be cleared after this "
+                "many seconds (best-effort)."
+            ),
+            foreground=SUBTLE_FG,
+            wraplength=360,
+            justify="left",
+        ).grid(row=row, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        row += 1
+
         btn_frame = ttk.Frame(frame)
         btn_frame.grid(row=row, column=0, columnspan=3, sticky="e", pady=(14, 2))
 
@@ -650,6 +687,21 @@ class PassWardenApp(tk.Tk):
         ).grid(row=0, column=1, padx=8)
 
         self.update_generator()
+
+    def _on_clipboard_timeout_changed(self):
+        if self.settings is None:
+            return
+        try:
+            value = int(self.clipboard_timeout_var.get())
+        except Exception:
+            return
+        # Clamp between 5 and 300 seconds
+        value = max(5, min(300, value))
+        self.clipboard_timeout_var.set(value)
+        self.settings["clipboard_timeout_ms"] = value * 1000
+        # Persist new setting
+        if self.vault is not None and self.master_password is not None:
+            self._save_vault()
 
     def _gen_on_scale(self, value):
         self.gen_length_var.set(int(float(value)))
@@ -694,13 +746,16 @@ class PassWardenApp(tk.Tk):
             f"Brute force @ 10¹⁰ guesses/s: ≈ {format_duration(seconds)}"
         )
 
-    def _schedule_clipboard_clear(self, expected: str, delay_ms: int = 15000) -> None:
+    def _schedule_clipboard_clear(self, expected: str) -> None:
         """
-        Schedule a best-effort clipboard clear after delay_ms milliseconds.
+        Schedule a best-effort clipboard clear using the configured timeout.
 
         The clipboard is only cleared if it still contains the same value that
         was originally copied, to avoid wiping something the user copied later.
         """
+        timeout_ms = 15000
+        if self.settings is not None:
+            timeout_ms = int(self.settings.get("clipboard_timeout_ms", timeout_ms))
 
         def clear_if_match():
             try:
@@ -716,7 +771,7 @@ class PassWardenApp(tk.Tk):
                     # we just ignore the error.
                     pass
 
-        self.after(delay_ms, clear_if_match)
+        self.after(timeout_ms, clear_if_match)
 
     def gen_copy(self):
         pwd = self.gen_password_var.get()
@@ -726,7 +781,20 @@ class PassWardenApp(tk.Tk):
         self.clipboard_append(pwd)
         # Auto-clear clipboard after a short delay if it still holds this password
         self._schedule_clipboard_clear(pwd)
-        messagebox.showinfo("Copied", "Password copied to clipboard.", parent=self)
+
+        timeout_ms = 15000
+        if self.settings is not None:
+            timeout_ms = int(self.settings.get("clipboard_timeout_ms", timeout_ms))
+        timeout_seconds = max(1, timeout_ms // 1000)
+        messagebox.showinfo(
+            "Copied",
+            (
+                "Password copied to clipboard.\n\n"
+                f"Clipboard will auto-clear in about {timeout_seconds} seconds "
+                "(best-effort)."
+            ),
+            parent=self,
+        )
 
     # ----- Analyzer panel -----
 
@@ -957,7 +1025,20 @@ class PassWardenApp(tk.Tk):
         self.clipboard_append(pwd)
         # Auto-clear clipboard after a short delay if it still holds this password
         self._schedule_clipboard_clear(pwd)
-        messagebox.showinfo("Copied", "Password copied to clipboard.", parent=self)
+
+        timeout_ms = 15000
+        if self.settings is not None:
+            timeout_ms = int(self.settings.get("clipboard_timeout_ms", timeout_ms))
+        timeout_seconds = max(1, timeout_ms // 1000)
+        messagebox.showinfo(
+            "Copied",
+            (
+                "Password copied to clipboard.\n\n"
+                f"Clipboard will auto-clear in about {timeout_seconds} seconds "
+                "(best-effort)."
+            ),
+            parent=self,
+        )
 
     # ------------------------------------------------------------------
     #  CHANGE MASTER PASSWORD
@@ -1059,9 +1140,10 @@ class PassWardenApp(tk.Tk):
             try:
                 size = self.geometry().split("+")[0]
                 width, height = size.split("x")
-                settings = self.vault.setdefault("settings", {})
+                settings = self.vault.setdefault("settings", self.settings or {})
                 settings["window_width"] = int(width)
                 settings["window_height"] = int(height)
+                self.settings = settings
             except Exception:
                 pass
             self._save_vault()
@@ -1079,5 +1161,6 @@ class PassWardenApp(tk.Tk):
 
         # Drop decrypted vault from memory
         self.vault = None
+        self.settings = None
 
         self.destroy()
