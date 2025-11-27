@@ -60,6 +60,25 @@ def parse_version(v: str):
     return tuple(int(x) for x in v.split("."))
 
 
+def wipe_string(value: str | None) -> None:
+    """
+    Best-effort attempt to overwrite sensitive string data.
+
+    Because Python strings are immutable and memory management is handled by the
+    interpreter, this cannot guarantee an in-place wipe of the original bytes.
+    However, it helps reduce the lifetime and reuse of sensitive values.
+    """
+    if not value:
+        return
+    try:
+        # Allocate another string of the same length, which may help overwrite
+        # previous memory regions when the interpreter reuses them.
+        _ = "\0" * len(value)
+    except Exception:
+        # We deliberately ignore all errors here: this is a best-effort helper.
+        pass
+
+
 class PassWardenApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -75,6 +94,11 @@ class PassWardenApp(tk.Tk):
 
         # Placeholder for auth screen frame
         self.auth_frame: ttk.Frame | None = None
+
+        # These may be created depending on which auth screen is shown
+        self.fp_pass_var: tk.StringVar | None = None
+        self.fp_confirm_var: tk.StringVar | None = None
+        self.ul_pass_var: tk.StringVar | None = None
 
         # Decide whether to show first-run screen or unlock screen
         if not os.path.exists(VAULT_PATH):
@@ -164,8 +188,8 @@ class PassWardenApp(tk.Tk):
         ).grid(row=0, column=1, padx=8)
 
     def _on_first_run_create(self):
-        p1 = self.fp_pass_var.get()
-        p2 = self.fp_confirm_var.get()
+        p1 = self.fp_pass_var.get() if self.fp_pass_var is not None else ""
+        p2 = self.fp_confirm_var.get() if self.fp_confirm_var is not None else ""
 
         if not p1:
             messagebox.showerror("Error", "Password cannot be empty.", parent=self)
@@ -180,6 +204,12 @@ class PassWardenApp(tk.Tk):
         self.master_password = p1
         self.vault = new_empty_vault()
         save_vault_file(VAULT_PATH, self.vault, self.master_password)
+
+        # Best-effort: clear the entered passwords from the auth screen
+        if self.fp_pass_var is not None:
+            self.fp_pass_var.set("")
+        if self.fp_confirm_var is not None:
+            self.fp_confirm_var.set("")
 
         # Now build the main UI
         self._clear_auth_frame()
@@ -248,7 +278,7 @@ class PassWardenApp(tk.Tk):
         ).grid(row=0, column=1, padx=8)
 
     def _on_unlock(self):
-        password = self.ul_pass_var.get()
+        password = self.ul_pass_var.get() if self.ul_pass_var is not None else ""
         if not password:
             messagebox.showerror("Error", "Password cannot be empty.", parent=self)
             return
@@ -265,6 +295,11 @@ class PassWardenApp(tk.Tk):
 
         self.master_password = password
         self.vault = vault
+
+        # Best-effort: clear the typed unlock password
+        if self.ul_pass_var is not None:
+            self.ul_pass_var.set("")
+
         self._clear_auth_frame()
         self._post_unlock_setup()
 
@@ -926,8 +961,14 @@ class PassWardenApp(tk.Tk):
             )
             return
 
-        # Update in memory and re-encrypt vault with new password
+        # Update in memory and re-encrypt vault with new password.
+        # We keep the new password in memory (for the session) and best-effort
+        # wipe the old value.
+        old_master = self.master_password
         self.master_password = new_pw
+        if old_master:
+            wipe_string(old_master)
+
         self._save_vault()
 
         messagebox.showinfo(
@@ -996,4 +1037,19 @@ class PassWardenApp(tk.Tk):
             except Exception:
                 pass
             self._save_vault()
+
+        # Best-effort: clear any password variables still hanging around
+        for attr in ("ul_pass_var", "fp_pass_var", "fp_confirm_var"):
+            var = getattr(self, attr, None)
+            if isinstance(var, tk.StringVar):
+                var.set("")
+
+        # Best-effort: wipe master password reference
+        if self.master_password is not None:
+            wipe_string(self.master_password)
+            self.master_password = None
+
+        # Drop decrypted vault from memory
+        self.vault = None
+
         self.destroy()
