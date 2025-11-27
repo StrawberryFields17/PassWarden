@@ -120,6 +120,8 @@ def new_empty_vault() -> Dict[str, Any]:
         "settings": {
             "window_width": None,
             "window_height": None,
+            "clipboard_timeout_ms": 15000,
         },
         "entries": [],
     }
+g
