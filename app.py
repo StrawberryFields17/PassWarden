@@ -694,12 +694,38 @@ class PassWardenApp(tk.Tk):
             f"Brute force @ 10¹⁰ guesses/s: ≈ {format_duration(seconds)}"
         )
 
+    def _schedule_clipboard_clear(self, expected: str, delay_ms: int = 15000) -> None:
+        """
+        Schedule a best-effort clipboard clear after delay_ms milliseconds.
+
+        The clipboard is only cleared if it still contains the same value that
+        was originally copied, to avoid wiping something the user copied later.
+        """
+
+        def clear_if_match():
+            try:
+                current = self.clipboard_get()
+            except tk.TclError:
+                # Clipboard not available or empty; nothing to do
+                return
+            if current == expected:
+                try:
+                    self.clipboard_clear()
+                except tk.TclError:
+                    # If we can't clear it (e.g. clipboard ownership lost),
+                    # we just ignore the error.
+                    pass
+
+        self.after(delay_ms, clear_if_match)
+
     def gen_copy(self):
         pwd = self.gen_password_var.get()
         if not pwd:
             return
         self.clipboard_clear()
         self.clipboard_append(pwd)
+        # Auto-clear clipboard after a short delay if it still holds this password
+        self._schedule_clipboard_clear(pwd)
         messagebox.showinfo("Copied", "Password copied to clipboard.", parent=self)
 
     # ----- Analyzer panel -----
@@ -929,6 +955,8 @@ class PassWardenApp(tk.Tk):
 
         self.clipboard_clear()
         self.clipboard_append(pwd)
+        # Auto-clear clipboard after a short delay if it still holds this password
+        self._schedule_clipboard_clear(pwd)
         messagebox.showinfo("Copied", "Password copied to clipboard.", parent=self)
 
     # ------------------------------------------------------------------
