@@ -2,12 +2,22 @@ import base64
 import json
 import os
 import hashlib
+import secrets
+from datetime import datetime
 from typing import Dict, Any
 
 from cryptography.fernet import Fernet
 
 
-PBKDF2_ITERATIONS = 200_000
+PBKDF2_ITERATIONS = 400_000
+
+
+def utcnow_iso() -> str:
+    """
+    Return current UTC time as an ISO 8601 string with second precision and 'Z' suffix.
+    Example: '2025-11-27T12:34:56Z'
+    """
+    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
 
 def derive_key(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) -> bytes:
@@ -27,6 +37,7 @@ def derive_key(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) 
 def encrypt_vault(vault_data: Dict[str, Any], password: str) -> Dict[str, Any]:
     """
     Encrypt vault_data using Fernet derived from master password.
+    The returned container is a JSON-serializable dict.
     """
     salt = os.urandom(16)
     key = derive_key(password, salt)
@@ -65,6 +76,25 @@ def load_vault_file(path: str, password: str) -> Dict[str, Any]:
 
 
 def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> None:
+    """
+    Persist the given vault_data to disk, encrypted with the provided password.
+
+    This function also ensures that basic vault metadata is present:
+      - vault_id: stable random identifier for this vault file
+      - created_at: first time the vault was created (UTC)
+      - updated_at: last time the vault was saved (UTC)
+    """
+    now = utcnow_iso()
+
+    # Add metadata for older vaults that didn't have it yet
+    if "vault_id" not in vault_data:
+        vault_data["vault_id"] = secrets.token_hex(16)
+    if "created_at" not in vault_data:
+        vault_data["created_at"] = now
+
+    # Always bump updated_at on save
+    vault_data["updated_at"] = now
+
     container = encrypt_vault(vault_data, password)
     temp_path = path + ".tmp"
     with open(temp_path, "w", encoding="utf-8") as f:
@@ -75,9 +105,18 @@ def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> Non
 def new_empty_vault() -> Dict[str, Any]:
     """
     Initial structure for a new vault. Settings live inside, so they are encrypted too.
+
+    Includes basic metadata:
+      - version: internal schema version
+      - vault_id: stable random identifier
+      - created_at / updated_at: UTC timestamps
     """
+    now = utcnow_iso()
     return {
         "version": 1,
+        "vault_id": secrets.token_hex(16),
+        "created_at": now,
+        "updated_at": now,
         "settings": {
             "window_width": None,
             "window_height": None,
