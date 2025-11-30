@@ -15,20 +15,49 @@ def generate_password(
     use_digits: bool = True,
     use_symbols: bool = True,
 ) -> str:
-    if not any([use_lower, use_upper, use_digits, use_symbols]):
+    """
+    Generate a random password with the requested length and character sets.
+
+    This version guarantees that, if a character set is enabled, the resulting
+    password will contain at least one character from that set (assuming the
+    total length is sufficient).
+    """
+    # Build individual pools so we can force at least one character from each.
+    pools = []
+
+    if use_lower:
+        pools.append(string.ascii_lowercase)
+    if use_upper:
+        pools.append(string.ascii_uppercase)
+    if use_digits:
+        pools.append(string.digits)
+    if use_symbols:
+        pools.append(SYMBOLS)
+
+    if not pools:
         raise ValueError("At least one character set must be selected.")
 
-    alphabet = ""
-    if use_lower:
-        alphabet += string.ascii_lowercase
-    if use_upper:
-        alphabet += string.ascii_uppercase
-    if use_digits:
-        alphabet += string.digits
-    if use_symbols:
-        alphabet += SYMBOLS
+    if length < len(pools):
+        raise ValueError(
+            "Password length must be at least the number of selected character "
+            f"sets ({len(pools)})."
+        )
 
-    return "".join(secrets.choice(alphabet) for _ in range(length))
+    # One guaranteed character from each selected set
+    password_chars = [secrets.choice(pool) for pool in pools]
+
+    # Combined alphabet for the remaining characters
+    alphabet = "".join(pools)
+
+    # Fill the rest with random characters from the combined alphabet
+    remaining = length - len(password_chars)
+    password_chars.extend(secrets.choice(alphabet) for _ in range(remaining))
+
+    # Shuffle so the guaranteed characters aren’t predictable at the front
+    rng = secrets.SystemRandom()
+    rng.shuffle(password_chars)
+
+    return "".join(password_chars)
 
 
 def estimate_entropy_bits(length: int, alphabet_size: int) -> float:
