@@ -83,6 +83,9 @@ def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> Non
       - vault_id: stable random identifier for this vault file
       - created_at: first time the vault was created (UTC)
       - updated_at: last time the vault was saved (UTC)
+
+    On POSIX systems it additionally attempts to enforce restrictive file
+    permissions (0600) on the resulting vault file.
     """
     now = utcnow_iso()
 
@@ -100,6 +103,14 @@ def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> Non
     with open(temp_path, "w", encoding="utf-8") as f:
         json.dump(container, f, indent=2)
     os.replace(temp_path, path)
+
+    # Best-effort: restrict permissions on POSIX (owner read/write only).
+    try:
+        if os.name == "posix":
+            os.chmod(path, 0o600)
+    except Exception:
+        # If we cannot change permissions (e.g. unusual filesystem), ignore it.
+        pass
 
 
 def new_empty_vault() -> Dict[str, Any]:
@@ -124,4 +135,3 @@ def new_empty_vault() -> Dict[str, Any]:
         },
         "entries": [],
     }
-g
