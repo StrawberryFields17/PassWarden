@@ -975,7 +975,7 @@ class PassWardenApp(tk.Tk):
 
         self._get_entries().append(entry)
         self._save_vault()
-        self.refresh_entries_list()
+        self.apply_search_filter()
 
     def edit_selected_entry(self):
         selection = self.tree.selection()
@@ -1000,7 +1000,7 @@ class PassWardenApp(tk.Tk):
         entry["updated"] = now
 
         self._save_vault()
-        self.refresh_entries_list()
+        self.apply_search_filter()
         self.show_selected_details()
 
     def delete_selected_entry(self):
@@ -1025,7 +1025,7 @@ class PassWardenApp(tk.Tk):
             e for e in self._get_entries() if e["id"] != entry_id
         ]
         self._save_vault()
-        self.refresh_entries_list()
+        self.apply_search_filter()
         self.show_selected_details()
 
     def copy_selected_password(self):
