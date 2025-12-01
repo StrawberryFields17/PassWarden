@@ -484,6 +484,7 @@ class PassWardenApp(tk.Tk):
         scrollbar.grid(row=1, column=0, sticky="nse", padx=(0, 4), pady=(0, 10))
 
         self.tree.bind("<<TreeviewSelect>>", lambda e: self.show_selected_details())
+        self.tree.bind("<Double-1>", lambda e: self.edit_selected_entry())
 
         detail_frame = ttk.LabelFrame(parent, text="Details", padding=(12, 10))
         detail_frame.grid(
