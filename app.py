@@ -362,6 +362,7 @@ class PassWardenApp(tk.Tk):
         menubar = tk.Menu(self, bg=BG_COLOR, fg="white", tearoff=False)
 
         file_menu = tk.Menu(menubar, tearoff=False)
+        file_menu.add_command(label="Lock vault", command=self.lock_vault)
         file_menu.add_command(label="Lock && exit", command=self.on_close)
         file_menu.add_separator()
         file_menu.add_command(
@@ -370,20 +371,15 @@ class PassWardenApp(tk.Tk):
         )
         menubar.add_cascade(label="File", menu=file_menu)
 
+
         help_menu = tk.Menu(menubar, tearoff=False)
         help_menu.add_command(
             label="Check for updates...", command=self.check_for_updates
         )
         help_menu.add_separator()
-        help_menu.add_command(
-            label="About",
-            command=lambda: messagebox.showinfo(
-                "About",
-                f"{APP_NAME} {APP_VERSION}\nLocal encrypted password manager.",
-                parent=self,
-            ),
-        )
+        help_menu.add_command(label="About", command=self.show_about)
         menubar.add_cascade(label="Help", menu=help_menu)
+
 
         self.config(menu=menubar)
 
@@ -1120,6 +1116,72 @@ class PassWardenApp(tk.Tk):
     # ------------------------------------------------------------------
     #  UPDATES + CLOSE
     # ------------------------------------------------------------------
+    def lock_vault(self):
+        """
+        Lock the vault without closing the application.
+
+        This clears the in-memory master password and decrypted vault, tears
+        down the main UI and shows the unlock screen again.
+        """
+        if self.vault is None:
+            # Nothing to lock.
+            return
+
+        # Persist window size for next run
+        try:
+            size = self.geometry().split("+")[0]
+            width, height = size.split("x")
+            settings = self.vault.setdefault("settings", self.settings or {})
+            settings["window_width"] = int(width)
+            settings["window_height"] = int(height)
+            self.settings = settings
+        except Exception:
+            pass
+
+        # Save encrypted vault to disk with any updated settings
+        self._save_vault()
+
+        # Best-effort: wipe master password
+        if self.master_password is not None:
+            wipe_string(self.master_password)
+            self.master_password = None
+
+        # Drop decrypted vault + settings from memory
+        self.vault = None
+        self.settings = None
+
+        # Destroy main UI widgets and remove menu
+        for child in self.winfo_children():
+            child.destroy()
+        self.config(menu=None)
+
+        # Show unlock screen again
+        self._build_unlock_screen()
+
+    def show_about(self):
+        """
+        Show an About dialog with basic app and vault metadata (if loaded).
+        """
+        lines = [
+            f"{APP_NAME} {APP_VERSION}",
+            "Local encrypted password manager.",
+        ]
+
+        if self.vault is not None:
+            vault_id = self.vault.get("vault_id")
+            created_at = self.vault.get("created_at")
+            updated_at = self.vault.get("updated_at")
+
+            lines.append("")
+            lines.append(f"Vault file: {VAULT_PATH}")
+            if vault_id:
+                lines.append(f"Vault ID: {vault_id[:8]}…")
+            if created_at:
+                lines.append(f"Created: {created_at}")
+            if updated_at:
+                lines.append(f"Last updated: {updated_at}")
+
+        messagebox.showinfo("About", "\n".join(lines), parent=self)
 
     def check_for_updates(self, silent=False):
         if not UPDATE_INFO_URL:
