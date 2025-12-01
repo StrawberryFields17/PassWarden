@@ -95,6 +95,7 @@ class PassWardenApp(tk.Tk):
 
         # Placeholder for auth screen frame
         self.auth_frame: ttk.Frame | None = None
+        self.search_var: tk.StringVar | None = None
 
         # These may be created depending on which auth screen is shown
         self.fp_pass_var: tk.StringVar | None = None
@@ -456,6 +457,12 @@ class PassWardenApp(tk.Tk):
         ttk.Button(
             toolbar, text="Copy password", command=self.copy_selected_password
         ).grid(row=0, column=3, padx=8)
+        # Search box for filtering entries
+        ttk.Label(toolbar, text="Search:").grid(row=0, column=4, padx=(20, 4))
+        self.search_var = tk.StringVar()
+        search_entry = ttk.Entry(toolbar, textvariable=self.search_var, width=30)
+        search_entry.grid(row=0, column=5, padx=(0, 4))
+        search_entry.bind("<KeyRelease>", lambda e: self.apply_search_filter())
 
         # Entries list
         self.tree = ttk.Treeview(
@@ -896,9 +903,21 @@ class PassWardenApp(tk.Tk):
                 return e
         return None
 
-    def refresh_entries_list(self):
+    def refresh_entries_list(self, filter_text: str | None = None):
         self.tree.delete(*self.tree.get_children())
         for entry in self._get_entries():
+            if filter_text:
+                q = filter_text.lower()
+                haystack = " ".join(
+                    [
+                        entry.get("name", ""),
+                        entry.get("username", ""),
+                        entry.get("url", ""),
+                        entry.get("notes", ""),
+                    ]
+                ).lower()
+                if q not in haystack:
+                    continue
             self.tree.insert(
                 "",
                 "end",
@@ -909,6 +928,17 @@ class PassWardenApp(tk.Tk):
                     entry.get("url", ""),
                 ),
             )
+
+    def apply_search_filter(self):
+        """Filter the entries list based on the search box."""
+        if self.search_var is None:
+            self.refresh_entries_list()
+            return
+        query = self.search_var.get().strip()
+        if not query:
+            self.refresh_entries_list()
+        else:
+            self.refresh_entries_list(filter_text=query)
 
     def show_selected_details(self):
         selection = self.tree.selection()
