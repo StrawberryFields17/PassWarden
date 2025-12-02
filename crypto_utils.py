@@ -6,8 +6,7 @@ import secrets
 from datetime import datetime
 from typing import Dict, Any
 
-from cryptography.fernet import Fernet
-
+from cryptography.fernet import Fernet, InvalidToken
 
 PBKDF2_ITERATIONS = 400_000
 
@@ -58,8 +57,6 @@ def decrypt_vault(container: Dict[str, Any], password: str) -> Dict[str, Any]:
     """
     Decrypt a vault container dict (created by encrypt_vault) with master password.
     """
-    from cryptography.fernet import InvalidToken  # re-export so callers can catch
-
     salt = base64.b64decode(container["salt"])
     iterations = container.get("iterations", PBKDF2_ITERATIONS)
     key = derive_key(password, salt, iterations)

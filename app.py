@@ -10,9 +10,15 @@ from tkinter import ttk, messagebox
 import urllib.request
 import webbrowser
 
-from cryptography.fernet import InvalidToken
 
-from crypto_utils import load_vault_file, save_vault_file, new_empty_vault
+from crypto_utils import (
+    load_vault_file,
+    save_vault_file,
+    new_empty_vault,
+    InvalidToken,
+)
+
+
 from ui_theme import (
     configure_dark_theme,
     ENTRY_BG,
