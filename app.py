@@ -1,7 +1,6 @@
 import json
 import os
 import secrets
-from datetime import datetime
 from pathlib import Path
 
 import tkinter as tk
@@ -16,6 +15,7 @@ from crypto_utils import (
     save_vault_file,
     new_empty_vault,
     InvalidToken,
+    utcnow_iso,
 )
 
 
@@ -377,7 +377,6 @@ class PassWardenApp(tk.Tk):
         )
         menubar.add_cascade(label="File", menu=file_menu)
 
-
         help_menu = tk.Menu(menubar, tearoff=False)
         help_menu.add_command(
             label="Check for updates...", command=self.check_for_updates
@@ -385,7 +384,6 @@ class PassWardenApp(tk.Tk):
         help_menu.add_separator()
         help_menu.add_command(label="About", command=self.show_about)
         menubar.add_cascade(label="Help", menu=help_menu)
-
 
         self.config(menu=menubar)
 
@@ -973,7 +971,7 @@ class PassWardenApp(tk.Tk):
         if dlg.result is None:
             return
 
-        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        now = utcnow_iso()
         entry = dlg.result
         entry["id"] = secrets.token_hex(8)
         entry["created"] = now
@@ -1000,7 +998,7 @@ class PassWardenApp(tk.Tk):
         if dlg.result is None:
             return
 
-        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        now = utcnow_iso()
         updated = dlg.result
         entry.update(updated)
         entry["updated"] = now
