@@ -1,6 +1,7 @@
 import json
 import os
 import secrets
+from datetime import datetime
 from pathlib import Path
 
 import tkinter as tk
@@ -9,16 +10,9 @@ from tkinter import ttk, messagebox
 import urllib.request
 import webbrowser
 
+from cryptography.fernet import InvalidToken
 
-from crypto_utils import (
-    load_vault_file,
-    save_vault_file,
-    new_empty_vault,
-    InvalidToken,
-    utcnow_iso,
-)
-
-
+from crypto_utils import load_vault_file, save_vault_file, new_empty_vault
 from ui_theme import (
     configure_dark_theme,
     ENTRY_BG,
@@ -101,12 +95,18 @@ class PassWardenApp(tk.Tk):
 
         # Placeholder for auth screen frame
         self.auth_frame: ttk.Frame | None = None
-        self.search_var: tk.StringVar | None = None
 
         # These may be created depending on which auth screen is shown
         self.fp_pass_var: tk.StringVar | None = None
         self.fp_confirm_var: tk.StringVar | None = None
         self.ul_pass_var: tk.StringVar | None = None
+
+        # Search/filter variable for the vault list
+        self.search_var: tk.StringVar | None = None
+
+        # Sorting state for the entries list
+        self.tree_sort_column: str | None = None
+        self.tree_sort_reverse: bool = False
 
         # Decide whether to show first-run screen or unlock screen
         if not os.path.exists(VAULT_PATH):
@@ -457,6 +457,7 @@ class PassWardenApp(tk.Tk):
         ttk.Button(
             toolbar, text="Copy password", command=self.copy_selected_password
         ).grid(row=0, column=3, padx=8)
+
         # Search box for filtering entries
         ttk.Label(toolbar, text="Search:").grid(row=0, column=4, padx=(20, 4))
         self.search_var = tk.StringVar()
@@ -471,9 +472,21 @@ class PassWardenApp(tk.Tk):
             show="headings",
             selectmode="browse",
         )
-        self.tree.heading("name", text="Name")
-        self.tree.heading("username", text="Username")
-        self.tree.heading("url", text="URL")
+        self.tree.heading(
+            "name",
+            text="Name",
+            command=lambda c="name": self.sort_entries_by_column(c),
+        )
+        self.tree.heading(
+            "username",
+            text="Username",
+            command=lambda c="username": self.sort_entries_by_column(c),
+        )
+        self.tree.heading(
+            "url",
+            text="URL",
+            command=lambda c="url": self.sort_entries_by_column(c),
+        )
         self.tree.column("name", width=240)
         self.tree.column("username", width=180)
         self.tree.column("url", width=280)
@@ -941,6 +954,42 @@ class PassWardenApp(tk.Tk):
         else:
             self.refresh_entries_list(filter_text=query)
 
+    def sort_entries_by_column(self, column: str) -> None:
+        """
+        Sort the visible entries in the list by the given column.
+
+        This only affects the current view (Treeview order), not the
+        underlying vault data.
+        """
+        if not hasattr(self, "tree"):
+            return
+
+        children = list(self.tree.get_children(""))
+        if not children:
+            return
+
+        rows = []
+        for iid in children:
+            value = self.tree.set(iid, column)
+            if isinstance(value, str):
+                sort_value = value.lower()
+            else:
+                sort_value = value
+            rows.append((sort_value, iid))
+
+        # Toggle reverse if sorting by same column again
+        reverse = False
+        if self.tree_sort_column == column:
+            reverse = not self.tree_sort_reverse
+
+        self.tree_sort_column = column
+        self.tree_sort_reverse = reverse
+
+        rows.sort(key=lambda item: item[0], reverse=reverse)
+
+        for index, (_, iid) in enumerate(rows):
+            self.tree.move(iid, "", index)
+
     def show_selected_details(self):
         selection = self.tree.selection()
         if not selection:
@@ -971,7 +1020,7 @@ class PassWardenApp(tk.Tk):
         if dlg.result is None:
             return
 
-        now = utcnow_iso()
+        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         entry = dlg.result
         entry["id"] = secrets.token_hex(8)
         entry["created"] = now
@@ -998,7 +1047,7 @@ class PassWardenApp(tk.Tk):
         if dlg.result is None:
             return
 
-        now = utcnow_iso()
+        now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         updated = dlg.result
         entry.update(updated)
         entry["updated"] = now
@@ -1120,6 +1169,7 @@ class PassWardenApp(tk.Tk):
     # ------------------------------------------------------------------
     #  UPDATES + CLOSE
     # ------------------------------------------------------------------
+
     def lock_vault(self):
         """
         Lock the vault without closing the application.
