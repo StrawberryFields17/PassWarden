@@ -101,13 +101,6 @@ class PassWardenApp(tk.Tk):
         self.fp_confirm_var: tk.StringVar | None = None
         self.ul_pass_var: tk.StringVar | None = None
 
-        # Search/filter variable for the vault list
-        self.search_var: tk.StringVar | None = None
-
-        # Sorting state for the entries list
-        self.tree_sort_column: str | None = None
-        self.tree_sort_reverse: bool = False
-
         # Decide whether to show first-run screen or unlock screen
         if not os.path.exists(VAULT_PATH):
             self._build_first_run_screen()
@@ -457,13 +450,12 @@ class PassWardenApp(tk.Tk):
         ttk.Button(
             toolbar, text="Copy password", command=self.copy_selected_password
         ).grid(row=0, column=3, padx=8)
-
-        # Search box for filtering entries
-        ttk.Label(toolbar, text="Search:").grid(row=0, column=4, padx=(20, 4))
-        self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(toolbar, textvariable=self.search_var, width=30)
-        search_entry.grid(row=0, column=5, padx=(0, 4))
-        search_entry.bind("<KeyRelease>", lambda e: self.apply_search_filter())
+        ttk.Button(
+            toolbar, text="Copy username", command=self.copy_selected_username
+        ).grid(row=0, column=4, padx=8)
+        ttk.Button(
+            toolbar, text="Open URL", command=self.open_selected_url
+        ).grid(row=0, column=5, padx=8)
 
         # Entries list
         self.tree = ttk.Treeview(
@@ -472,21 +464,9 @@ class PassWardenApp(tk.Tk):
             show="headings",
             selectmode="browse",
         )
-        self.tree.heading(
-            "name",
-            text="Name",
-            command=lambda c="name": self.sort_entries_by_column(c),
-        )
-        self.tree.heading(
-            "username",
-            text="Username",
-            command=lambda c="username": self.sort_entries_by_column(c),
-        )
-        self.tree.heading(
-            "url",
-            text="URL",
-            command=lambda c="url": self.sort_entries_by_column(c),
-        )
+        self.tree.heading("name", text="Name")
+        self.tree.heading("username", text="Username")
+        self.tree.heading("url", text="URL")
         self.tree.column("name", width=240)
         self.tree.column("username", width=180)
         self.tree.column("url", width=280)
@@ -917,21 +897,9 @@ class PassWardenApp(tk.Tk):
                 return e
         return None
 
-    def refresh_entries_list(self, filter_text: str | None = None):
+    def refresh_entries_list(self):
         self.tree.delete(*self.tree.get_children())
         for entry in self._get_entries():
-            if filter_text:
-                q = filter_text.lower()
-                haystack = " ".join(
-                    [
-                        entry.get("name", ""),
-                        entry.get("username", ""),
-                        entry.get("url", ""),
-                        entry.get("notes", ""),
-                    ]
-                ).lower()
-                if q not in haystack:
-                    continue
             self.tree.insert(
                 "",
                 "end",
@@ -942,53 +910,6 @@ class PassWardenApp(tk.Tk):
                     entry.get("url", ""),
                 ),
             )
-
-    def apply_search_filter(self):
-        """Filter the entries list based on the search box."""
-        if self.search_var is None:
-            self.refresh_entries_list()
-            return
-        query = self.search_var.get().strip()
-        if not query:
-            self.refresh_entries_list()
-        else:
-            self.refresh_entries_list(filter_text=query)
-
-    def sort_entries_by_column(self, column: str) -> None:
-        """
-        Sort the visible entries in the list by the given column.
-
-        This only affects the current view (Treeview order), not the
-        underlying vault data.
-        """
-        if not hasattr(self, "tree"):
-            return
-
-        children = list(self.tree.get_children(""))
-        if not children:
-            return
-
-        rows = []
-        for iid in children:
-            value = self.tree.set(iid, column)
-            if isinstance(value, str):
-                sort_value = value.lower()
-            else:
-                sort_value = value
-            rows.append((sort_value, iid))
-
-        # Toggle reverse if sorting by same column again
-        reverse = False
-        if self.tree_sort_column == column:
-            reverse = not self.tree_sort_reverse
-
-        self.tree_sort_column = column
-        self.tree_sort_reverse = reverse
-
-        rows.sort(key=lambda item: item[0], reverse=reverse)
-
-        for index, (_, iid) in enumerate(rows):
-            self.tree.move(iid, "", index)
 
     def show_selected_details(self):
         selection = self.tree.selection()
@@ -1028,7 +949,7 @@ class PassWardenApp(tk.Tk):
 
         self._get_entries().append(entry)
         self._save_vault()
-        self.apply_search_filter()
+        self.refresh_entries_list()
 
     def edit_selected_entry(self):
         selection = self.tree.selection()
@@ -1053,7 +974,7 @@ class PassWardenApp(tk.Tk):
         entry["updated"] = now
 
         self._save_vault()
-        self.apply_search_filter()
+        self.refresh_entries_list()
         self.show_selected_details()
 
     def delete_selected_entry(self):
@@ -1078,7 +999,7 @@ class PassWardenApp(tk.Tk):
             e for e in self._get_entries() if e["id"] != entry_id
         ]
         self._save_vault()
-        self.apply_search_filter()
+        self.refresh_entries_list()
         self.show_selected_details()
 
     def copy_selected_password(self):
@@ -1119,6 +1040,62 @@ class PassWardenApp(tk.Tk):
             ),
             parent=self,
         )
+
+    def copy_selected_username(self):
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showinfo(
+                "No selection", "Select an entry to copy its username.", parent=self
+            )
+            return
+        entry_id = selection[0]
+        entry = self._find_entry_by_id(entry_id)
+        if not entry:
+            return
+        username = entry.get("username", "")
+        if not username:
+            messagebox.showinfo(
+                "No username",
+                "This entry does not have a username stored.",
+                parent=self,
+            )
+            return
+
+        self.clipboard_clear()
+        self.clipboard_append(username)
+
+    def open_selected_url(self):
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showinfo(
+                "No selection", "Select an entry to open its URL.", parent=self
+            )
+            return
+        entry_id = selection[0]
+        entry = self._find_entry_by_id(entry_id)
+        if not entry:
+            return
+        url = entry.get("url", "")
+        if not url:
+            messagebox.showinfo(
+                "No URL",
+                "This entry does not have a URL stored.",
+                parent=self,
+            )
+            return
+
+        # Add a scheme if missing so webbrowser can handle it
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Could not open URL:\n{e}",
+                parent=self,
+            )
 
     # ------------------------------------------------------------------
     #  CHANGE MASTER PASSWORD
@@ -1171,12 +1148,7 @@ class PassWardenApp(tk.Tk):
     # ------------------------------------------------------------------
 
     def lock_vault(self):
-        """
-        Lock the vault without closing the application.
-
-        This clears the in-memory master password and decrypted vault, tears
-        down the main UI and shows the unlock screen again.
-        """
+        """Lock the vault without closing the application."""
         if self.vault is None:
             # Nothing to lock.
             return
@@ -1213,9 +1185,7 @@ class PassWardenApp(tk.Tk):
         self._build_unlock_screen()
 
     def show_about(self):
-        """
-        Show an About dialog with basic app and vault metadata (if loaded).
-        """
+        """Show an About dialog with basic app and vault metadata (if loaded)."""
         lines = [
             f"{APP_NAME} {APP_VERSION}",
             "Local encrypted password manager.",
