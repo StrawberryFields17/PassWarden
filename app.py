@@ -911,53 +911,6 @@ class PassWardenApp(tk.Tk):
                 ),
             )
 
-    def apply_search_filter(self):
-        """Filter the entries list based on the search box."""
-        if self.search_var is None:
-            self.refresh_entries_list()
-            return
-        query = self.search_var.get().strip()
-        if not query:
-            self.refresh_entries_list()
-        else:
-            self.refresh_entries_list(filter_text=query)
-
-    def sort_entries_by_column(self, column: str) -> None:
-        """
-        Sort the visible entries in the list by the given column.
-
-        This only affects the current view (Treeview order), not the
-        underlying vault data.
-        """
-        if not hasattr(self, "tree"):
-            return
-
-        children = list(self.tree.get_children(""))
-        if not children:
-            return
-
-        rows = []
-        for iid in children:
-            value = self.tree.set(iid, column)
-            if isinstance(value, str):
-                sort_value = value.lower()
-            else:
-                sort_value = value
-            rows.append((sort_value, iid))
-
-        # Toggle reverse if sorting by same column again
-        reverse = False
-        if self.tree_sort_column == column:
-            reverse = not self.tree_sort_reverse
-
-        self.tree_sort_column = column
-        self.tree_sort_reverse = reverse
-
-        rows.sort(key=lambda item: item[0], reverse=reverse)
-
-        for index, (_, iid) in enumerate(rows):
-            self.tree.move(iid, "", index)
-
     def show_selected_details(self):
         selection = self.tree.selection()
         if not selection:
