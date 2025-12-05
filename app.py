@@ -1093,7 +1093,7 @@ class PassWardenApp(tk.Tk):
         except Exception as e:
             messagebox.showerror(
                 "Error",
-                f"Could not open URL:\\n{e}",
+                f"Could not open URL:\n{e}",
                 parent=self,
             )
 
@@ -1148,12 +1148,7 @@ class PassWardenApp(tk.Tk):
     # ------------------------------------------------------------------
 
     def lock_vault(self):
-        """
-        Lock the vault without closing the application.
-
-        This clears the in-memory master password and decrypted vault, tears
-        down the main UI and shows the unlock screen again.
-        """
+        """Lock the vault without closing the application."""
         if self.vault is None:
             # Nothing to lock.
             return
@@ -1190,9 +1185,7 @@ class PassWardenApp(tk.Tk):
         self._build_unlock_screen()
 
     def show_about(self):
-        """
-        Show an About dialog with basic app and vault metadata (if loaded).
-        """
+        """Show an About dialog with basic app and vault metadata (if loaded)."""
         lines = [
             f"{APP_NAME} {APP_VERSION}",
             "Local encrypted password manager.",
