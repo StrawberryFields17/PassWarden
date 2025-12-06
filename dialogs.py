@@ -45,6 +45,10 @@ class EntryDialog(tk.Toplevel):
         center_window(self)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
+        # Keyboard shortcuts for better UX
+        self.bind("<Return>", lambda event: self.on_ok())
+        self.bind("<Escape>", lambda event: self.on_cancel())
+
     def _build_ui(self) -> None:
         main = ttk.Frame(self, padding=18)
         main.grid(row=0, column=0, sticky="nsew")
@@ -54,9 +58,9 @@ class EntryDialog(tk.Toplevel):
         ttk.Label(main, text="Name").grid(
             row=row, column=0, sticky="e", pady=4, padx=(0, 10)
         )
-        ttk.Entry(main, textvariable=self.name_var, width=42).grid(
-            row=row, column=1, sticky="ew", pady=4
-        )
+        name_entry = ttk.Entry(main, textvariable=self.name_var, width=42)
+        name_entry.grid(row=row, column=1, sticky="ew", pady=4)
+        self.name_entry = name_entry
         row += 1
 
         ttk.Label(main, text="Username / email").grid(
@@ -113,6 +117,9 @@ class EntryDialog(tk.Toplevel):
             style="Primary.TButton",
             command=self.on_ok,
         ).grid(row=0, column=1, padx=8)
+
+        # Start with the name field focused for quick entry
+        self.name_entry.focus_set()
 
     def on_ok(self) -> None:
         name = self.name_var.get().strip()
@@ -172,6 +179,10 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         center_window(self)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
+        # Keyboard shortcuts
+        self.bind("<Return>", lambda event: self.on_ok())
+        self.bind("<Escape>", lambda event: self.on_cancel())
+
     def _build_ui(self) -> None:
         main = ttk.Frame(self, padding=18)
         main.grid(row=0, column=0, sticky="nsew")
@@ -201,9 +212,9 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         ttk.Label(main, text="Current password").grid(
             row=row, column=0, sticky="e", pady=6, padx=(0, 10)
         )
-        ttk.Entry(main, textvariable=self.current_var, show="*", width=34).grid(
-            row=row, column=1, sticky="w", pady=6
-        )
+        current_entry = ttk.Entry(main, textvariable=self.current_var, show="*", width=34)
+        current_entry.grid(row=row, column=1, sticky="w", pady=6)
+        self.current_entry = current_entry
         row += 1
 
         ttk.Label(main, text="New password").grid(
@@ -244,6 +255,9 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
             style="Primary.TButton",
             command=self.on_ok,
         ).grid(row=0, column=1, padx=8)
+
+        # Focus current password field so user can start typing immediately
+        self.current_entry.focus_set()
 
     def on_ok(self) -> None:
         current = self.current_var.get()
