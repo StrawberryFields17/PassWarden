@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 
 SYMBOLS = "!@#$%^&*()-_=+[]{};:,.?/"
+SYMBOLS_SET = set(SYMBOLS)
 GUESSES_PER_SECOND = 1e10  # 10 billion guesses per second
 
 
@@ -138,7 +139,7 @@ def analyze_arbitrary_password(password: str) -> PasswordAnalysis:
     has_lower = any(c.islower() for c in password)
     has_upper = any(c.isupper() for c in password)
     has_digit = any(c.isdigit() for c in password)
-    has_symbol = any(c in SYMBOLS for c in password)
+    has_symbol = any(c in SYMBOLS_SET for c in password)
 
     alphabet_size = (
         (26 if has_lower else 0)
