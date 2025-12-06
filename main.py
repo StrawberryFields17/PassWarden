@@ -3,7 +3,7 @@ import sys
 from app import PassWardenApp
 
 
-def set_dpi_awareness():
+def set_dpi_awareness() -> None:
     """
     Make the app DPI-aware on Windows so it is crisp at 125/150/200% scaling
     instead of being blurry.
@@ -23,7 +23,7 @@ def set_dpi_awareness():
             pass
 
 
-def main():
+def main() -> None:
     set_dpi_awareness()
     app = PassWardenApp()
     app.mainloop()
