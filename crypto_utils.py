@@ -57,6 +57,11 @@ def decrypt_vault(container: Dict[str, Any], password: str) -> Dict[str, Any]:
     """
     Decrypt a vault container dict (created by encrypt_vault) with master password.
     """
+    # Basic sanity check so obviously corrupted containers fail clearly.
+    for key in ("salt", "vault"):
+        if key not in container:
+            raise ValueError(f"Invalid vault container: missing '{key}'")
+
     salt = base64.b64decode(container["salt"])
     iterations = container.get("iterations", PBKDF2_ITERATIONS)
     key = derive_key(password, salt, iterations)

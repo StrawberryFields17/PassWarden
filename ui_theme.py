@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 
-# NordPass-ish palette
-BG_COLOR = "#040816"             # very dark blue
+# NordPass-ish palette for the whole app
+BG_COLOR = "#040816"             # very dark blue background
 SURFACE_BG = "#050b1f"
 PANEL_BG = "#050b1f"
 HEADER_BG = "#071121"
@@ -21,6 +21,7 @@ BORDER_COLOR = "#17233b"
 def configure_dark_theme(root: tk.Tk) -> None:
     """
     Configure a dark, NordPass-like ttk theme with larger, very readable fonts.
+    Call this once on the root window before creating other widgets.
     """
     style = ttk.Style(root)
     try:
@@ -153,7 +154,6 @@ def configure_dark_theme(root: tk.Tk) -> None:
         ],
     )
 
-    # We keep scaling modest because fonts are already larger
     try:
         root.tk.call("tk", "scaling", 1.5)
     except tk.TclError:
