@@ -29,6 +29,7 @@ from password_utils import (
     estimate_crack_time_seconds,
     format_duration,
     analyze_arbitrary_password,
+    SYMBOLS,
 )
 
 APP_NAME = "PassWarden"
@@ -737,7 +738,7 @@ class PassWardenApp(tk.Tk):
             (26 if self.gen_use_lower.get() else 0)
             + (26 if self.gen_use_upper.get() else 0)
             + (10 if self.gen_use_digits.get() else 0)
-            + (32 if self.gen_use_symbols.get() else 0)
+            + (len(SYMBOLS) if self.gen_use_symbols.get() else 0)
         )
         bits = estimate_entropy_bits(self.gen_length_var.get(), alphabet_size)
         seconds = estimate_crack_time_seconds(bits)
@@ -886,6 +887,15 @@ class PassWardenApp(tk.Tk):
     # ------------------------------------------------------------------
 
     def _save_vault(self):
+        """
+        Persist the current vault if loaded.
+
+        If the vault is locked (no master password or no vault in memory),
+        this becomes a no-op.
+        """
+        if self.vault is None or self.master_password is None:
+            # Nothing to persist; this can happen after locking.
+            return
         save_vault_file(VAULT_PATH, self.vault, self.master_password)
 
     def _get_entries(self):
