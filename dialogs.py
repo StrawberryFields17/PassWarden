@@ -4,7 +4,7 @@ from tkinter import ttk, messagebox
 from ui_theme import BG_COLOR, ENTRY_BG, ENTRY_FG, SUBTLE_FG
 
 
-def center_window(win: tk.Toplevel | tk.Tk):
+def center_window(win: tk.Toplevel | tk.Tk) -> None:
     """Center a window on the screen based on its current size."""
     win.update_idletasks()
     w = win.winfo_width()
@@ -39,6 +39,9 @@ class EntryDialog(tk.Toplevel):
         self.url_var = tk.StringVar(value=entry.get("url", ""))
         self.notes_var = tk.StringVar(value=entry.get("notes", ""))
 
+        # Will be assigned in _build_ui
+        self.notes_widget: tk.Text | None = None
+
         self._build_ui()
         self.transient(parent)
         self.grab_set()
@@ -46,7 +49,8 @@ class EntryDialog(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
         # Keyboard shortcuts for better UX
-        self.bind("<Return>", lambda event: self.on_ok())
+        # Use a custom handler so Enter inside the notes box doesn't submit.
+        self.bind("<Return>", self._on_return)
         self.bind("<Escape>", lambda event: self.on_cancel())
 
     def _build_ui(self) -> None:
@@ -121,6 +125,16 @@ class EntryDialog(tk.Toplevel):
         # Start with the name field focused for quick entry
         self.name_entry.focus_set()
 
+    def _on_return(self, event: tk.Event) -> None:
+        """
+        Handle the Return key: submit the dialog except when the Notes Text
+        widget has focus (where Return should insert a newline instead).
+        """
+        if self.notes_widget is not None and self.focus_get() is self.notes_widget:
+            # Let the Text widget handle the newline normally.
+            return
+        self.on_ok()
+
     def on_ok(self) -> None:
         name = self.name_var.get().strip()
         if not name:
@@ -131,7 +145,9 @@ class EntryDialog(tk.Toplevel):
             )
             return
 
-        self.notes_var.set(self.notes_widget.get("1.0", "end").rstrip("\n"))
+        if self.notes_widget is not None:
+            self.notes_var.set(self.notes_widget.get("1.0", "end").rstrip("\n"))
+
         self.result = {
             "name": name,
             "username": self.username_var.get().strip(),
