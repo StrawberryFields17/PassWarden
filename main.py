@@ -5,25 +5,24 @@ from app import PassWardenApp
 
 def set_dpi_awareness() -> None:
     """
-    Make the app DPI-aware on Windows so it is crisp at 125/150/200% scaling
-    instead of being blurry.
+    Enable DPI-awareness on Windows to prevent blurry scaling.
+    Non-Windows platforms simply ignore this.
     """
     if sys.platform != "win32":
         return
     try:
         from ctypes import windll
-        # Windows 8.1+; PROCESS_SYSTEM_DPI_AWARE = 1
         windll.shcore.SetProcessDpiAwareness(1)
     except Exception:
         try:
             from ctypes import windll
-            # Older Windows
             windll.user32.SetProcessDPIAware()
         except Exception:
             pass
 
 
 def main() -> None:
+    """Application entrypoint."""
     set_dpi_awareness()
     app = PassWardenApp()
     app.mainloop()
