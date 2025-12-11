@@ -6,7 +6,7 @@ from app import PassWardenApp
 def set_dpi_awareness() -> None:
     """
     Enable DPI-awareness on Windows to prevent blurry UI scaling.
-    Falls back gracefully on older Windows versions.
+    Falls back gracefully on systems where DPI APIs are not available.
     """
     if sys.platform != "win32":
         return
@@ -21,17 +21,19 @@ def set_dpi_awareness() -> None:
             from ctypes import windll
             windll.user32.SetProcessDPIAware()
         except Exception:
-            # If everything fails, silently ignore.
             pass
 
 
 def main() -> None:
-    """Application entrypoint."""
-    set_dpi_awareness()
-    app = PassWardenApp()
-    app.mainloop()
+    """Application entrypoint with safe startup guard."""
+    try:
+        set_dpi_awareness()
+        app = PassWardenApp()
+        app.mainloop()
+    except Exception as e:
+        # Prevents edge-case crashes on faulty Tk installs
+        print(f"PassWarden failed to start: {e}")
 
 
 if __name__ == "__main__":
-    # Explicit entrypoint comment for clarity in tooling and PR readers
     main()
