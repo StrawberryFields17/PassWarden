@@ -43,22 +43,19 @@ def configure_dark_theme(root: tk.Tk) -> None:
     style.configure("TFrame", background=SURFACE_BG)
     style.configure("Card.TFrame", background=HEADER_BG)
 
+    # Buttons
     style.configure(
-        "TLabelframe",
-        background=PANEL_BG,
+        "TButton",
+        background="#0b172b",
         foreground=FG_COLOR,
-        borderwidth=1,
-        padding=(8, 6),
+        padding=(14, 7),
+        font=button_font,
     )
-    style.configure(
-        "TLabelframe.Label",
-        background=PANEL_BG,
-        foreground=SUBTLE_FG,
-        font=heading_font,
+    style.map(
+        "TButton",
+        background=[("active", "#13223d")],
+        foreground=[("disabled", SUBTLE_FG)],   # <-- small fix here
     )
-
-    style.configure("TButton", background="#0b172b", foreground=FG_COLOR, font=button_font)
-    style.map("TButton", background=[("active", "#13223d")])
 
     style.configure(
         "Primary.TButton",
@@ -66,16 +63,20 @@ def configure_dark_theme(root: tk.Tk) -> None:
         foreground="#031014",
         font=button_font,
     )
-    style.map("Primary.TButton", background=[("active", "#25b5ac")])
+    style.map(
+        "Primary.TButton",
+        background=[("active", "#25b5ac")],
+        foreground=[("disabled", "#244e4d")],   # <-- disabled fg consistency
+    )
 
-    # Small fix applied here: rowheight increased for visual consistency
+    # Treeview
     style.configure(
         "Treeview",
         background=FRAME_BG,
         foreground=FG_COLOR,
         fieldbackground=FRAME_BG,
         bordercolor=BORDER_COLOR,
-        rowheight=32,  # was 30
+        rowheight=30,
         font=base_font,
     )
 
@@ -86,8 +87,10 @@ def configure_dark_theme(root: tk.Tk) -> None:
         font=heading_font,
     )
 
-    style.configure("TEntry", fieldbackground=ENTRY_BG, foreground=ENTRY_FG)
+    # Entry fields
+    style.configure("TEntry", foreground=ENTRY_FG, fieldbackground=ENTRY_BG)
 
+    # Notebook tabs
     style.configure("TNotebook", background=BG_COLOR)
     style.configure(
         "TNotebook.Tab",
