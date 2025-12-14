@@ -25,14 +25,14 @@ def set_dpi_awareness() -> None:
 
 
 def main() -> None:
-    """Application entrypoint with safe startup guard."""
+    """Application entrypoint."""
     try:
         set_dpi_awareness()
         app = PassWardenApp()
         app.mainloop()
     except Exception as e:
-        # Prevents edge-case crashes on faulty Tk installs
-        print(f"PassWarden failed to start: {e}")
+        print(f"PassWarden failed to start: {e}", file=sys.stderr)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

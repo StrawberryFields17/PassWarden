@@ -19,13 +19,10 @@ def generate_password(
     """
     Generate a random password with the requested length and character sets.
 
-    This version guarantees that, if a character set is enabled, the resulting
-    password will contain at least one character from that set (assuming the
-    total length is sufficient).
+    Guarantees that if a character set is enabled, the password will include at
+    least one character from that set (assuming length is sufficient).
     """
-    # Build individual pools so we can force at least one character from each.
     pools = []
-
     if use_lower:
         pools.append(string.ascii_lowercase)
     if use_upper:
@@ -44,20 +41,14 @@ def generate_password(
             f"sets ({len(pools)})."
         )
 
-    # One guaranteed character from each selected set
     password_chars = [secrets.choice(pool) for pool in pools]
-
-    # Combined alphabet for the remaining characters
     alphabet = "".join(pools)
 
-    # Fill the rest with random characters from the combined alphabet
     remaining = length - len(password_chars)
     password_chars.extend(secrets.choice(alphabet) for _ in range(remaining))
 
-    # Shuffle so the guaranteed characters aren’t predictable at the front
     rng = secrets.SystemRandom()
     rng.shuffle(password_chars)
-
     return "".join(password_chars)
 
 
@@ -78,10 +69,17 @@ def classify_strength(bits: float) -> str:
         return "Very strong"
 
 
-def estimate_crack_time_seconds(bits: float, guesses_per_second: float = GUESSES_PER_SECOND) -> float:
+def estimate_crack_time_seconds(
+    bits: float, guesses_per_second: float = GUESSES_PER_SECOND
+) -> float:
     if bits <= 0 or guesses_per_second <= 0:
         return 0.0
     return math.pow(2.0, bits - 1.0) / guesses_per_second
+
+
+def _plural(value: float, unit: str) -> str:
+    # small fix helper: proper singular/plural
+    return unit if abs(value - 1.0) < 1e-9 else unit + "s"
 
 
 def format_duration(seconds: float) -> str:
@@ -96,17 +94,22 @@ def format_duration(seconds: float) -> str:
     year = 365.25 * day
 
     if seconds < minute:
-        return f"{seconds:.1f} seconds"
+        s = round(seconds, 1)
+        return f"{s:.1f} {_plural(s, 'second')}"
     if seconds < hour:
-        return f"{seconds / minute:.1f} minutes"
+        m = round(seconds / minute, 1)
+        return f"{m:.1f} {_plural(m, 'minute')}"
     if seconds < day:
-        return f"{seconds / hour:.1f} hours"
+        h = round(seconds / hour, 1)
+        return f"{h:.1f} {_plural(h, 'hour')}"
     if seconds < year:
-        return f"{seconds / day:.1f} days"
+        d = round(seconds / day, 1)
+        return f"{d:.1f} {_plural(d, 'day')}"
 
     years = seconds / year
     if years < 1_000:
-        return f"{years:.1f} years"
+        y = round(years, 1)
+        return f"{y:.1f} {_plural(y, 'year')}"
     if years < 1_000_000:
         return f"~{years:,.0f} years"
 

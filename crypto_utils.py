@@ -12,12 +12,17 @@ PBKDF2_ITERATIONS = 400_000
 
 
 def utcnow_iso() -> str:
-    """Return UTC time in ISO format."""
+    """
+    Return current UTC time as an ISO 8601 string with second precision and 'Z' suffix.
+    Example: '2025-11-27T12:34:56Z'
+    """
     return datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
 
 def derive_key(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) -> bytes:
-    """Derive a Fernet-compatible key from a password."""
+    """
+    PBKDF2-HMAC-SHA256 → 32-byte key → base64 for Fernet.
+    """
     key = hashlib.pbkdf2_hmac(
         "sha256",
         password.encode("utf-8"),
@@ -29,14 +34,18 @@ def derive_key(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) 
 
 
 def encrypt_vault(vault_data: Dict[str, Any], password: str) -> Dict[str, Any]:
+    """
+    Encrypt vault_data using Fernet derived from master password.
+    The returned container is a JSON-serializable dict.
+    """
     salt = os.urandom(16)
     key = derive_key(password, salt)
     f = Fernet(key)
-    token = f.encrypt(json.dumps(vault_data).encode("utf-8"))
+    token = f.encrypt(json.dumps(vault_data, ensure_ascii=False).encode("utf-8"))
 
     return {
         "kdf": "PBKDF2-HMAC-SHA256",
-        "cipher": "Fernet",
+        "cipher": "Fernet(AES-128-CBC+HMAC)",
         "iterations": PBKDF2_ITERATIONS,
         "salt": base64.b64encode(salt).decode("ascii"),
         "vault": token.decode("ascii"),
@@ -45,60 +54,65 @@ def encrypt_vault(vault_data: Dict[str, Any], password: str) -> Dict[str, Any]:
 
 
 def decrypt_vault(container: Dict[str, Any], password: str) -> Dict[str, Any]:
-    """Decrypts a stored vault. Raises clearer errors for corrupted files."""
-    if "salt" not in container or "vault" not in container:
-        raise ValueError("Vault file is missing required fields (salt or vault).")
+    """
+    Decrypt a vault container dict (created by encrypt_vault) with master password.
+    """
+    for key in ("salt", "vault"):
+        if key not in container:
+            raise ValueError(f"Invalid vault container: missing '{key}'")
 
-    try:
-        salt = base64.b64decode(container["salt"])
-    except Exception:
-        raise ValueError("Vault file contains an invalid salt value.")
-
-    key = derive_key(password, salt, container.get("iterations", PBKDF2_ITERATIONS))
+    salt = base64.b64decode(container["salt"])
+    iterations = container.get("iterations", PBKDF2_ITERATIONS)
+    key = derive_key(password, salt, iterations)
     f = Fernet(key)
-
-    try:
-        decrypted = f.decrypt(container["vault"].encode("ascii"))
-    except InvalidToken:
-        raise InvalidToken("Failed to decrypt vault — incorrect password or corrupted file.")
-
-    try:
-        return json.loads(decrypted.decode("utf-8"))
-    except json.JSONDecodeError:
-        # <-- small fix: explicit corruption notice instead of cryptic stacktrace
-        raise ValueError("Decrypted vault data is invalid JSON — file may be corrupted.")
+    token = container["vault"].encode("ascii")
+    plaintext = f.decrypt(token).decode("utf-8")
+    return json.loads(plaintext)
 
 
 def load_vault_file(path: str, password: str) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
-        try:
-            container = json.load(f)
-        except json.JSONDecodeError:
-            raise ValueError("Vault file is unreadable or corrupted (invalid JSON).")
+        container = json.load(f)
     return decrypt_vault(container, password)
 
 
 def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> None:
+    """
+    Persist the given vault_data to disk, encrypted with the provided password.
+
+    Ensures vault metadata:
+      - vault_id
+      - created_at
+      - updated_at
+
+    Best-effort restrictive permissions on POSIX.
+    """
     now = utcnow_iso()
-    vault_data.setdefault("created_at", now)
+
+    if "vault_id" not in vault_data:
+        vault_data["vault_id"] = secrets.token_hex(16)
+    if "created_at" not in vault_data:
+        vault_data["created_at"] = now
     vault_data["updated_at"] = now
-    vault_data.setdefault("vault_id", secrets.token_hex(16))
 
     container = encrypt_vault(vault_data, password)
+    temp_path = path + ".tmp"
+    with open(temp_path, "w", encoding="utf-8") as f:
+        # small fix: preserve unicode characters cleanly
+        json.dump(container, f, indent=2, ensure_ascii=False)
+    os.replace(temp_path, path)
 
-    temp = path + ".tmp"
-    with open(temp, "w", encoding="utf-8") as f:
-        json.dump(container, f, indent=2)
-    os.replace(temp, path)
-
-    if os.name == "posix":
-        try:
+    try:
+        if os.name == "posix":
             os.chmod(path, 0o600)
-        except Exception:
-            pass
+    except Exception:
+        pass
 
 
 def new_empty_vault() -> Dict[str, Any]:
+    """
+    Initial structure for a new vault. Settings live inside, so they are encrypted too.
+    """
     now = utcnow_iso()
     return {
         "version": 1,
