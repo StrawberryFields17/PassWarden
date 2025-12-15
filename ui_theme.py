@@ -2,17 +2,17 @@ import tkinter as tk
 from tkinter import ttk
 
 # NordPass-ish palette for the whole app
-BG_COLOR = "#040816"             # very dark blue background
+BG_COLOR = "#040816"
 SURFACE_BG = "#050b1f"
 PANEL_BG = "#050b1f"
 HEADER_BG = "#071121"
 
 FRAME_BG = SURFACE_BG
-FG_COLOR = "#e5f0ff"             # light bluish text
-SUBTLE_FG = "#9ca7c5"            # desaturated text
+FG_COLOR = "#e5f0ff"
+SUBTLE_FG = "#9ca7c5"
 
-ACCENT_COLOR = "#32d0c5"         # teal accent
-ACCENT_SECONDARY = "#4fa9ff"     # soft blue
+ACCENT_COLOR = "#32d0c5"
+ACCENT_SECONDARY = "#4fa9ff"
 ENTRY_BG = "#070d1f"
 ENTRY_FG = FG_COLOR
 BORDER_COLOR = "#17233b"
@@ -21,7 +21,6 @@ BORDER_COLOR = "#17233b"
 def configure_dark_theme(root: tk.Tk) -> None:
     """
     Configure a dark, NordPass-like ttk theme with larger, readable fonts.
-    Call this once on the root window before creating other widgets.
     """
     style = ttk.Style(root)
     try:
@@ -31,12 +30,10 @@ def configure_dark_theme(root: tk.Tk) -> None:
 
     root.configure(bg=BG_COLOR)
 
-    # Bigger base fonts for readability
     base_font = ("Segoe UI", 11)
     heading_font = ("Segoe UI Semibold", 12)
     button_font = ("Segoe UI Semibold", 11)
 
-    # Global defaults
     style.configure(
         ".",
         background=BG_COLOR,
@@ -45,9 +42,9 @@ def configure_dark_theme(root: tk.Tk) -> None:
         font=base_font,
     )
 
-    # Frames / panels
     style.configure("TFrame", background=SURFACE_BG)
     style.configure("Card.TFrame", background=HEADER_BG, relief="flat")
+
     style.configure(
         "TLabelframe",
         background=PANEL_BG,
@@ -64,7 +61,6 @@ def configure_dark_theme(root: tk.Tk) -> None:
     )
     style.configure("TLabel", background=PANEL_BG, foreground=FG_COLOR)
 
-    # Buttons
     style.configure(
         "TButton",
         background="#0b172b",
@@ -77,7 +73,7 @@ def configure_dark_theme(root: tk.Tk) -> None:
     style.map(
         "TButton",
         background=[("active", "#13223d")],
-        foreground=[("disabled", SUBTLE_FG)],  # small fix: consistent disabled color
+        foreground=[("disabled", SUBTLE_FG)],  # small fix
     )
 
     style.configure(
@@ -88,10 +84,9 @@ def configure_dark_theme(root: tk.Tk) -> None:
     style.map(
         "Primary.TButton",
         background=[("active", "#25b5ac")],
-        foreground=[("disabled", "#244e4d")],  # small fix: readable disabled fg
+        foreground=[("disabled", "#244e4d")],  # small fix
     )
 
-    # Treeview (list of entries)
     style.configure(
         "Treeview",
         background=FRAME_BG,
@@ -115,7 +110,6 @@ def configure_dark_theme(root: tk.Tk) -> None:
         foreground=[("selected", "#020617")],
     )
 
-    # Entry / checkbutton / notebook
     style.configure(
         "TEntry",
         fieldbackground=ENTRY_BG,
@@ -146,7 +140,6 @@ def configure_dark_theme(root: tk.Tk) -> None:
         foreground=[("selected", FG_COLOR)],
     )
 
-    # We keep scaling modest because fonts are already larger
     try:
         root.tk.call("tk", "scaling", 1.5)
     except tk.TclError:
