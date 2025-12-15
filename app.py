@@ -39,11 +39,9 @@ APP_VERSION = "0.3.0"
 def get_vault_path() -> str:
     """Return a stable per-user path for the encrypted vault file."""
     if os.name == "nt":
-        # Windows: %APPDATA%/PassWarden/vault.pw
         appdata = os.getenv("APPDATA") or os.path.expanduser("~")
         base_dir = Path(appdata) / "PassWarden"
     else:
-        # macOS / Linux: ~/.passwarden/vault.pw
         base_dir = Path(os.path.expanduser("~")) / ".passwarden"
 
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -65,18 +63,14 @@ def wipe_string(value: str | None) -> None:
     """
     Best-effort attempt to overwrite sensitive string data.
 
-    Because Python strings are immutable and memory management is handled by the
-    interpreter, this cannot guarantee an in-place wipe of the original bytes.
-    However, it helps reduce the lifetime and reuse of sensitive values.
+    Python strings are immutable; this cannot guarantee an in-place wipe.
+    It helps reduce lifetime and reuse of sensitive values.
     """
     if not value:
         return
     try:
-        # Allocate another string of the same length, which may help overwrite
-        # previous memory regions when the interpreter reuses them.
         _ = "\0" * len(value)
     except Exception:
-        # We deliberately ignore all errors here: this is a best-effort helper.
         pass
 
 
@@ -86,30 +80,25 @@ class PassWardenApp(tk.Tk):
 
         configure_dark_theme(self)
         self.title(APP_NAME)
-
-        # Safe default geometry so it’s visible
         self.geometry("1100x750+200+80")
 
         self.master_password: str | None = None
         self.vault: dict | None = None
         self.settings: dict | None = None
 
-        # Placeholder for auth screen frame
         self.auth_frame: ttk.Frame | None = None
 
-        # These may be created depending on which auth screen is shown
         self.fp_pass_var: tk.StringVar | None = None
         self.fp_confirm_var: tk.StringVar | None = None
         self.ul_pass_var: tk.StringVar | None = None
 
-        # Decide whether to show first-run screen or unlock screen
         if not os.path.exists(VAULT_PATH):
             self._build_first_run_screen()
         else:
             self._build_unlock_screen()
 
     # ------------------------------------------------------------------
-    #  AUTH SCREENS (IN MAIN WINDOW)
+    #  AUTH SCREENS
     # ------------------------------------------------------------------
 
     def _clear_auth_frame(self):
@@ -118,7 +107,6 @@ class PassWardenApp(tk.Tk):
             self.auth_frame = None
 
     def _build_first_run_screen(self):
-        """Shown only when no vault file exists yet."""
         self._clear_auth_frame()
 
         frame = ttk.Frame(self, padding=32)
@@ -127,7 +115,6 @@ class PassWardenApp(tk.Tk):
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
 
-        # Center grid
         frame.columnconfigure(0, weight=1)
         frame.columnconfigure(1, weight=2)
 
@@ -208,18 +195,15 @@ class PassWardenApp(tk.Tk):
         self.settings = self.vault.setdefault("settings", {})
         save_vault_file(VAULT_PATH, self.vault, self.master_password)
 
-        # Best-effort: clear the entered passwords from the auth screen
         if self.fp_pass_var is not None:
             self.fp_pass_var.set("")
         if self.fp_confirm_var is not None:
             self.fp_confirm_var.set("")
 
-        # Now build the main UI
         self._clear_auth_frame()
         self._post_unlock_setup()
 
     def _build_unlock_screen(self):
-        """Shown when a vault already exists and we need the master password."""
         self._clear_auth_frame()
 
         frame = ttk.Frame(self, padding=32)
@@ -287,7 +271,7 @@ class PassWardenApp(tk.Tk):
             return
         try:
             vault = load_vault_file(VAULT_PATH, password)
-        except (InvalidToken, KeyError, json.JSONDecodeError):
+        except (InvalidToken, KeyError, json.JSONDecodeError, ValueError):
             messagebox.showerror(
                 "Error",
                 "Unable to decrypt vault. Master password is incorrect "
@@ -300,7 +284,6 @@ class PassWardenApp(tk.Tk):
         self.vault = vault
         self.settings = self.vault.setdefault("settings", {})
 
-        # Best-effort: clear the typed unlock password
         if self.ul_pass_var is not None:
             self.ul_pass_var.set("")
 
@@ -312,8 +295,6 @@ class PassWardenApp(tk.Tk):
     # ------------------------------------------------------------------
 
     def _post_unlock_setup(self):
-        """Called once we have a decrypted vault + master password."""
-        # Restore saved size if available
         self.settings = self.vault.setdefault("settings", self.settings or {})
         settings = self.settings
         try:
@@ -327,7 +308,6 @@ class PassWardenApp(tk.Tk):
         except Exception:
             pass
 
-        # Build UI
         self._build_ui()
         self.refresh_entries_list()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -382,7 +362,6 @@ class PassWardenApp(tk.Tk):
         self.config(menu=menubar)
 
     def _build_header(self):
-        # Top bar (NordPass-ish)
         header = ttk.Frame(self, style="Card.TFrame", padding=(20, 14))
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
@@ -390,7 +369,6 @@ class PassWardenApp(tk.Tk):
         title_row = ttk.Frame(header, style="Card.TFrame")
         title_row.grid(row=0, column=0, sticky="w")
 
-        # Teal dot
         dot = tk.Canvas(
             title_row,
             width=16,
@@ -417,7 +395,6 @@ class PassWardenApp(tk.Tk):
         )
         subtitle.grid(row=1, column=0, sticky="w", pady=(2, 0))
 
-        # Thin accent bar
         accent = tk.Frame(
             header,
             height=2,
@@ -458,7 +435,6 @@ class PassWardenApp(tk.Tk):
             toolbar, text="Open URL", command=self.open_selected_url
         ).grid(row=0, column=5, padx=8)
 
-        # Entries list
         self.tree = ttk.Treeview(
             parent,
             columns=("name", "username", "url"),
@@ -493,9 +469,7 @@ class PassWardenApp(tk.Tk):
         self.detail_created = tk.StringVar()
         self.detail_updated = tk.StringVar()
 
-        ttk.Label(detail_frame, text="Name:").grid(
-            row=0, column=0, sticky="e", pady=2
-        )
+        ttk.Label(detail_frame, text="Name:").grid(row=0, column=0, sticky="e", pady=2)
         ttk.Label(detail_frame, textvariable=self.detail_name).grid(
             row=0, column=1, sticky="w", pady=2
         )
@@ -507,9 +481,7 @@ class PassWardenApp(tk.Tk):
             row=1, column=1, sticky="w", pady=2
         )
 
-        ttk.Label(detail_frame, text="URL:").grid(
-            row=2, column=0, sticky="e", pady=2
-        )
+        ttk.Label(detail_frame, text="URL:").grid(row=2, column=0, sticky="e", pady=2)
         ttk.Label(detail_frame, textvariable=self.detail_url).grid(
             row=2, column=1, sticky="w", pady=2
         )
@@ -564,8 +536,6 @@ class PassWardenApp(tk.Tk):
         analyzer_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 10), pady=10)
         self._build_analyzer_panel(analyzer_frame)
 
-    # ----- Generator panel -----
-
     def _build_generator_panel(self, frame: ttk.Frame):
         frame.columnconfigure(0, weight=1)
 
@@ -581,9 +551,7 @@ class PassWardenApp(tk.Tk):
         ttk.Label(frame, text="Generated password:").grid(
             row=0, column=0, sticky="w", pady=(0, 4)
         )
-        self.gen_entry = ttk.Entry(
-            frame, textvariable=self.gen_password_var, width=50
-        )
+        self.gen_entry = ttk.Entry(frame, textvariable=self.gen_password_var, width=50)
         self.gen_entry.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 8))
 
         ttk.Label(frame, textvariable=self.gen_entropy_var, foreground=SUBTLE_FG).grid(
@@ -592,6 +560,14 @@ class PassWardenApp(tk.Tk):
         ttk.Label(frame, textvariable=self.gen_crack_var, foreground=SUBTLE_FG).grid(
             row=3, column=0, columnspan=3, sticky="w", pady=(0, 10)
         )
+
+        alphabet_size = (
+            (26 if self.gen_use_lower.get() else 0)
+            + (26 if self.gen_use_upper.get() else 0)
+            + (10 if self.gen_use_digits.get() else 0)
+            + (len(SYMBOLS) if self.gen_use_symbols.get() else 0)
+        )
+        _ = alphabet_size  # silence linters if unused in some refactors
 
         ttk.Label(frame, text="Length:").grid(row=4, column=0, sticky="w")
         self.gen_length_spin = ttk.Spinbox(
@@ -608,9 +584,7 @@ class PassWardenApp(tk.Tk):
             frame, from_=8, to=64, orient="horizontal", command=self._gen_on_scale
         )
         self.gen_length_scale.set(self.gen_length_var.get())
-        self.gen_length_scale.grid(
-            row=5, column=0, columnspan=3, sticky="ew", pady=(4, 12)
-        )
+        self.gen_length_scale.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(4, 12))
 
         row = 6
         ttk.Checkbutton(
@@ -642,7 +616,6 @@ class PassWardenApp(tk.Tk):
         ).grid(row=row, column=0, sticky="w")
         row += 1
 
-        # Clipboard timeout configuration
         timeout_ms = 15000
         if self.settings is not None:
             timeout_ms = int(self.settings.get("clipboard_timeout_ms", timeout_ms))
@@ -697,13 +670,10 @@ class PassWardenApp(tk.Tk):
             value = int(self.clipboard_timeout_var.get())
         except Exception:
             return
-        # Clamp between 5 and 300 seconds
         value = max(5, min(300, value))
         self.clipboard_timeout_var.set(value)
         self.settings["clipboard_timeout_ms"] = value * 1000
-        # Persist new setting
-        if self.vault is not None and self.master_password is not None:
-            self._save_vault()
+        self._save_vault()
 
     def _gen_on_scale(self, value):
         self.gen_length_var.set(int(float(value)))
@@ -749,12 +719,6 @@ class PassWardenApp(tk.Tk):
         )
 
     def _schedule_clipboard_clear(self, expected: str) -> None:
-        """
-        Schedule a best-effort clipboard clear using the configured timeout.
-
-        The clipboard is only cleared if it still contains the same value that
-        was originally copied, to avoid wiping something the user copied later.
-        """
         timeout_ms = 15000
         if self.settings is not None:
             timeout_ms = int(self.settings.get("clipboard_timeout_ms", timeout_ms))
@@ -763,14 +727,11 @@ class PassWardenApp(tk.Tk):
             try:
                 current = self.clipboard_get()
             except tk.TclError:
-                # Clipboard not available or empty; nothing to do
                 return
             if current == expected:
                 try:
                     self.clipboard_clear()
                 except tk.TclError:
-                    # If we can't clear it (e.g. clipboard ownership lost),
-                    # we just ignore the error.
                     pass
 
         self.after(timeout_ms, clear_if_match)
@@ -781,7 +742,6 @@ class PassWardenApp(tk.Tk):
             return
         self.clipboard_clear()
         self.clipboard_append(pwd)
-        # Auto-clear clipboard after a short delay if it still holds this password
         self._schedule_clipboard_clear(pwd)
 
         timeout_ms = 15000
@@ -798,8 +758,6 @@ class PassWardenApp(tk.Tk):
             parent=self,
         )
 
-    # ----- Analyzer panel -----
-
     def _build_analyzer_panel(self, frame: ttk.Frame):
         frame.columnconfigure(1, weight=1)
 
@@ -813,9 +771,7 @@ class PassWardenApp(tk.Tk):
         ttk.Label(frame, text="Password:").grid(
             row=0, column=0, sticky="e", pady=4, padx=(0, 8)
         )
-        self.an_entry = ttk.Entry(
-            frame, textvariable=self.an_pwd_var, show="*", width=32
-        )
+        self.an_entry = ttk.Entry(frame, textvariable=self.an_pwd_var, show="*", width=32)
         self.an_entry.grid(row=0, column=1, sticky="ew", pady=4)
         self.an_entry.bind("<KeyRelease>", lambda e: self.update_analyzer())
 
@@ -824,33 +780,19 @@ class PassWardenApp(tk.Tk):
         ).grid(row=0, column=2, sticky="w", pady=4)
 
         row = 1
-        ttk.Label(frame, text="Length:").grid(
-            row=row, column=0, sticky="e", pady=2, padx=(0, 8)
-        )
-        ttk.Label(frame, textvariable=self.an_length_var).grid(
-            row=row, column=1, sticky="w", pady=2
-        )
+        ttk.Label(frame, text="Length:").grid(row=row, column=0, sticky="e", pady=2, padx=(0, 8))
+        ttk.Label(frame, textvariable=self.an_length_var).grid(row=row, column=1, sticky="w", pady=2)
         row += 1
 
-        ttk.Label(frame, text="Alphabet size:").grid(
-            row=row, column=0, sticky="e", pady=2, padx=(0, 8)
-        )
-        ttk.Label(frame, textvariable=self.an_alphabet_var).grid(
-            row=row, column=1, sticky="w", pady=2
-        )
+        ttk.Label(frame, text="Alphabet size:").grid(row=row, column=0, sticky="e", pady=2, padx=(0, 8))
+        ttk.Label(frame, textvariable=self.an_alphabet_var).grid(row=row, column=1, sticky="w", pady=2)
         row += 1
 
-        ttk.Label(frame, text="Entropy:").grid(
-            row=row, column=0, sticky="e", pady=2, padx=(0, 8)
-        )
-        ttk.Label(frame, textvariable=self.an_entropy_var).grid(
-            row=row, column=1, sticky="w", pady=2
-        )
+        ttk.Label(frame, text="Entropy:").grid(row=row, column=0, sticky="e", pady=2, padx=(0, 8))
+        ttk.Label(frame, textvariable=self.an_entropy_var).grid(row=row, column=1, sticky="w", pady=2)
         row += 1
 
-        ttk.Label(frame, text="Brute force time:").grid(
-            row=row, column=0, sticky="e", pady=2, padx=(0, 8)
-        )
+        ttk.Label(frame, text="Brute force time:").grid(row=row, column=0, sticky="e", pady=2, padx=(0, 8))
         ttk.Label(frame, textvariable=self.an_crack_var, wraplength=280).grid(
             row=row, column=1, columnspan=2, sticky="w", pady=2
         )
@@ -877,9 +819,7 @@ class PassWardenApp(tk.Tk):
             self.an_crack_var.set("-")
             return
 
-        self.an_entropy_var.set(
-            f"{analysis.bits:.1f} bits ({analysis.strength_label})"
-        )
+        self.an_entropy_var.set(f"{analysis.bits:.1f} bits ({analysis.strength_label})")
         self.an_crack_var.set(analysis.crack_duration_text)
 
     # ------------------------------------------------------------------
@@ -887,14 +827,7 @@ class PassWardenApp(tk.Tk):
     # ------------------------------------------------------------------
 
     def _save_vault(self):
-        """
-        Persist the current vault if loaded.
-
-        If the vault is locked (no master password or no vault in memory),
-        this becomes a no-op.
-        """
         if self.vault is None or self.master_password is None:
-            # Nothing to persist; this can happen after locking.
             return
         save_vault_file(VAULT_PATH, self.vault, self.master_password)
 
@@ -914,11 +847,7 @@ class PassWardenApp(tk.Tk):
                 "",
                 "end",
                 iid=entry["id"],
-                values=(
-                    entry["name"],
-                    entry.get("username", ""),
-                    entry.get("url", ""),
-                ),
+                values=(entry["name"], entry.get("username", ""), entry.get("url", "")),
             )
 
     def show_selected_details(self):
@@ -964,9 +893,7 @@ class PassWardenApp(tk.Tk):
     def edit_selected_entry(self):
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo(
-                "No selection", "Select an entry to edit.", parent=self
-            )
+            messagebox.showinfo("No selection", "Select an entry to edit.", parent=self)
             return
         entry_id = selection[0]
         entry = self._find_entry_by_id(entry_id)
@@ -990,24 +917,16 @@ class PassWardenApp(tk.Tk):
     def delete_selected_entry(self):
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo(
-                "No selection", "Select an entry to delete.", parent=self
-            )
+            messagebox.showinfo("No selection", "Select an entry to delete.", parent=self)
             return
         entry_id = selection[0]
         entry = self._find_entry_by_id(entry_id)
         if not entry:
             return
-        if not messagebox.askyesno(
-            "Confirm delete",
-            f"Delete entry '{entry['name']}'?",
-            parent=self,
-        ):
+        if not messagebox.askyesno("Confirm delete", f"Delete entry '{entry['name']}'?", parent=self):
             return
 
-        self.vault["entries"] = [
-            e for e in self._get_entries() if e["id"] != entry_id
-        ]
+        self.vault["entries"] = [e for e in self._get_entries() if e["id"] != entry_id]
         self._save_vault()
         self.refresh_entries_list()
         self.show_selected_details()
@@ -1015,9 +934,7 @@ class PassWardenApp(tk.Tk):
     def copy_selected_password(self):
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo(
-                "No selection", "Select an entry to copy its password.", parent=self
-            )
+            messagebox.showinfo("No selection", "Select an entry to copy its password.", parent=self)
             return
         entry_id = selection[0]
         entry = self._find_entry_by_id(entry_id)
@@ -1025,16 +942,11 @@ class PassWardenApp(tk.Tk):
             return
         pwd = entry.get("password", "")
         if not pwd:
-            messagebox.showinfo(
-                "No password",
-                "This entry does not have a password stored.",
-                parent=self,
-            )
+            messagebox.showinfo("No password", "This entry does not have a password stored.", parent=self)
             return
 
         self.clipboard_clear()
         self.clipboard_append(pwd)
-        # Auto-clear clipboard after a short delay if it still holds this password
         self._schedule_clipboard_clear(pwd)
 
         timeout_ms = 15000
@@ -1054,9 +966,7 @@ class PassWardenApp(tk.Tk):
     def copy_selected_username(self):
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo(
-                "No selection", "Select an entry to copy its username.", parent=self
-            )
+            messagebox.showinfo("No selection", "Select an entry to copy its username.", parent=self)
             return
         entry_id = selection[0]
         entry = self._find_entry_by_id(entry_id)
@@ -1064,11 +974,7 @@ class PassWardenApp(tk.Tk):
             return
         username = entry.get("username", "")
         if not username:
-            messagebox.showinfo(
-                "No username",
-                "This entry does not have a username stored.",
-                parent=self,
-            )
+            messagebox.showinfo("No username", "This entry does not have a username stored.", parent=self)
             return
 
         self.clipboard_clear()
@@ -1077,48 +983,33 @@ class PassWardenApp(tk.Tk):
     def open_selected_url(self):
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo(
-                "No selection", "Select an entry to open its URL.", parent=self
-            )
+            messagebox.showinfo("No selection", "Select an entry to open its URL.", parent=self)
             return
         entry_id = selection[0]
         entry = self._find_entry_by_id(entry_id)
         if not entry:
             return
         url = entry.get("url", "")
+        url = url.strip()  # small fix: handle whitespace-only URLs
         if not url:
-            messagebox.showinfo(
-                "No URL",
-                "This entry does not have a URL stored.",
-                parent=self,
-            )
+            messagebox.showinfo("No URL", "This entry does not have a URL stored.", parent=self)
             return
 
-        # Add a scheme if missing so webbrowser can handle it
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
 
         try:
             webbrowser.open(url)
         except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"Could not open URL:\n{e}",
-                parent=self,
-            )
+            messagebox.showerror("Error", f"Could not open URL:\n{e}", parent=self)
 
     # ------------------------------------------------------------------
     #  CHANGE MASTER PASSWORD
     # ------------------------------------------------------------------
 
     def change_master_password(self):
-        """Let the user update the master password while the vault is unlocked."""
         if self.vault is None or self.master_password is None:
-            messagebox.showerror(
-                "Error",
-                "Vault is not loaded. Unlock the vault first.",
-                parent=self,
-            )
+            messagebox.showerror("Error", "Vault is not loaded. Unlock the vault first.", parent=self)
             return
 
         dlg = ChangeMasterPasswordDialog(self)
@@ -1130,16 +1021,9 @@ class PassWardenApp(tk.Tk):
         new_pw = dlg.result["new"]
 
         if current != self.master_password:
-            messagebox.showerror(
-                "Error",
-                "Current master password is incorrect.",
-                parent=self,
-            )
+            messagebox.showerror("Error", "Current master password is incorrect.", parent=self)
             return
 
-        # Update in memory and re-encrypt vault with new password.
-        # We keep the new password in memory (for the session) and best-effort
-        # wipe the old value.
         old_master = self.master_password
         self.master_password = new_pw
         if old_master:
@@ -1147,23 +1031,16 @@ class PassWardenApp(tk.Tk):
 
         self._save_vault()
 
-        messagebox.showinfo(
-            "Master password changed",
-            "Your master password has been updated.",
-            parent=self,
-        )
+        messagebox.showinfo("Master password changed", "Your master password has been updated.", parent=self)
 
     # ------------------------------------------------------------------
     #  UPDATES + CLOSE
     # ------------------------------------------------------------------
 
     def lock_vault(self):
-        """Lock the vault without closing the application."""
         if self.vault is None:
-            # Nothing to lock.
             return
 
-        # Persist window size for next run
         try:
             size = self.geometry().split("+")[0]
             width, height = size.split("x")
@@ -1174,28 +1051,22 @@ class PassWardenApp(tk.Tk):
         except Exception:
             pass
 
-        # Save encrypted vault to disk with any updated settings
         self._save_vault()
 
-        # Best-effort: wipe master password
         if self.master_password is not None:
             wipe_string(self.master_password)
             self.master_password = None
 
-        # Drop decrypted vault + settings from memory
         self.vault = None
         self.settings = None
 
-        # Destroy main UI widgets and remove menu
         for child in self.winfo_children():
             child.destroy()
         self.config(menu=None)
 
-        # Show unlock screen again
         self._build_unlock_screen()
 
     def show_about(self):
-        """Show an About dialog with basic app and vault metadata (if loaded)."""
         lines = [
             f"{APP_NAME} {APP_VERSION}",
             "Local encrypted password manager.",
@@ -1220,28 +1091,17 @@ class PassWardenApp(tk.Tk):
     def check_for_updates(self, silent=False):
         if not UPDATE_INFO_URL:
             if not silent:
-                messagebox.showinfo(
-                    "Check for updates",
-                    "Update checking is disabled in this build.",
-                    parent=self,
-                )
+                messagebox.showinfo("Check for updates", "Update checking is disabled in this build.", parent=self)
             return
 
         try:
             with urllib.request.urlopen(UPDATE_INFO_URL, timeout=5) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             latest = data.get("version")
-            download_url = data.get(
-                "download_url",
-                "https://github.com/StrawberryFields17/PassWarden/releases",
-            )
+            download_url = data.get("download_url", "https://github.com/StrawberryFields17/PassWarden/releases")
         except Exception as e:
             if not silent:
-                messagebox.showinfo(
-                    "Check for updates",
-                    f"Could not check for updates:\n{e}",
-                    parent=self,
-                )
+                messagebox.showinfo("Check for updates", f"Could not check for updates:\n{e}", parent=self)
             return
 
         if latest and parse_version(latest) > parse_version(APP_VERSION):
@@ -1255,14 +1115,9 @@ class PassWardenApp(tk.Tk):
                 webbrowser.open(download_url)
         else:
             if not silent:
-                messagebox.showinfo(
-                    "Up to date",
-                    f"{APP_NAME} {APP_VERSION} is the latest version.",
-                    parent=self,
-                )
+                messagebox.showinfo("Up to date", f"{APP_NAME} {APP_VERSION} is the latest version.", parent=self)
 
     def on_close(self):
-        # Persist window size for next run
         if self.vault is not None:
             try:
                 size = self.geometry().split("+")[0]
@@ -1275,18 +1130,15 @@ class PassWardenApp(tk.Tk):
                 pass
             self._save_vault()
 
-        # Best-effort: clear any password variables still hanging around
         for attr in ("ul_pass_var", "fp_pass_var", "fp_confirm_var"):
             var = getattr(self, attr, None)
             if isinstance(var, tk.StringVar):
                 var.set("")
 
-        # Best-effort: wipe master password reference
         if self.master_password is not None:
             wipe_string(self.master_password)
             self.master_password = None
 
-        # Drop decrypted vault from memory
         self.vault = None
         self.settings = None
 
