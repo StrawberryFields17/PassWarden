@@ -16,11 +16,6 @@ def center_window(win: tk.Toplevel | tk.Tk) -> None:
     win.geometry(f"{w}x{h}+{x}+{y}")
 
 
-# ---------------------------------------------------------------------------
-#  ENTRY DIALOG (ADD / EDIT VAULT ITEM)
-# ---------------------------------------------------------------------------
-
-
 class EntryDialog(tk.Toplevel):
     """Dialog to add or edit a single vault entry."""
 
@@ -39,7 +34,6 @@ class EntryDialog(tk.Toplevel):
         self.url_var = tk.StringVar(value=entry.get("url", ""))
         self.notes_var = tk.StringVar(value=entry.get("notes", ""))
 
-        # Will be assigned in _build_ui
         self.notes_widget: tk.Text | None = None
 
         self._build_ui()
@@ -48,8 +42,6 @@ class EntryDialog(tk.Toplevel):
         center_window(self)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
-        # Keyboard shortcuts for better UX
-        # Use a custom handler so Enter inside the notes box doesn't submit.
         self.bind("<Return>", self._on_return)
         self.bind("<Escape>", lambda event: self.on_cancel())
 
@@ -122,16 +114,11 @@ class EntryDialog(tk.Toplevel):
             command=self.on_ok,
         ).grid(row=0, column=1, padx=8)
 
-        # Start with the name field focused for quick entry
         self.name_entry.focus_set()
 
     def _on_return(self, event: tk.Event) -> None:
-        """
-        Handle the Return key: submit the dialog except when the Notes Text
-        widget has focus (where Return should insert a newline instead).
-        """
+        # Small fix: don't submit when Return is used inside multi-line Notes.
         if self.notes_widget is not None and self.focus_get() is self.notes_widget:
-            # Let the Text widget handle the newline normally.
             return
         self.on_ok()
 
@@ -162,11 +149,6 @@ class EntryDialog(tk.Toplevel):
         self.destroy()
 
 
-# ---------------------------------------------------------------------------
-#  CHANGE MASTER PASSWORD DIALOG
-# ---------------------------------------------------------------------------
-
-
 class ChangeMasterPasswordDialog(tk.Toplevel):
     """
     Dialog to change the master password while the vault is unlocked.
@@ -195,7 +177,6 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         center_window(self)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
-        # Keyboard shortcuts
         self.bind("<Return>", lambda event: self.on_ok())
         self.bind("<Escape>", lambda event: self.on_cancel())
 
@@ -272,7 +253,6 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
             command=self.on_ok,
         ).grid(row=0, column=1, padx=8)
 
-        # Focus current password field so user can start typing immediately
         self.current_entry.focus_set()
 
     def on_ok(self) -> None:
