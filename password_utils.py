@@ -23,6 +23,7 @@ def generate_password(
     least one character from that set (assuming length is sufficient).
     """
     pools = []
+
     if use_lower:
         pools.append(string.ascii_lowercase)
     if use_upper:
@@ -49,6 +50,7 @@ def generate_password(
 
     rng = secrets.SystemRandom()
     rng.shuffle(password_chars)
+
     return "".join(password_chars)
 
 
@@ -69,16 +71,14 @@ def classify_strength(bits: float) -> str:
         return "Very strong"
 
 
-def estimate_crack_time_seconds(
-    bits: float, guesses_per_second: float = GUESSES_PER_SECOND
-) -> float:
+def estimate_crack_time_seconds(bits: float, guesses_per_second: float = GUESSES_PER_SECOND) -> float:
     if bits <= 0 or guesses_per_second <= 0:
         return 0.0
     return math.pow(2.0, bits - 1.0) / guesses_per_second
 
 
 def _plural(value: float, unit: str) -> str:
-    # small fix helper: proper singular/plural
+    # Small fix: use singular when exactly 1.0
     return unit if abs(value - 1.0) < 1e-9 else unit + "s"
 
 
