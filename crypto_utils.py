@@ -12,17 +12,12 @@ PBKDF2_ITERATIONS = 400_000
 
 
 def utcnow_iso() -> str:
-    """
-    Return current UTC time as an ISO 8601 string with second precision and 'Z' suffix.
-    Example: '2025-11-27T12:34:56Z'
-    """
+    """Return current UTC time as ISO 8601 with second precision and 'Z' suffix."""
     return datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
 
 def derive_key(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) -> bytes:
-    """
-    PBKDF2-HMAC-SHA256 → 32-byte key → base64 for Fernet.
-    """
+    """PBKDF2-HMAC-SHA256 → 32-byte key → base64 for Fernet."""
     key = hashlib.pbkdf2_hmac(
         "sha256",
         password.encode("utf-8"),
@@ -34,10 +29,7 @@ def derive_key(password: str, salt: bytes, iterations: int = PBKDF2_ITERATIONS) 
 
 
 def encrypt_vault(vault_data: Dict[str, Any], password: str) -> Dict[str, Any]:
-    """
-    Encrypt vault_data using Fernet derived from master password.
-    The returned container is a JSON-serializable dict.
-    """
+    """Encrypt vault_data using Fernet derived from master password."""
     salt = os.urandom(16)
     key = derive_key(password, salt)
     f = Fernet(key)
@@ -54,9 +46,7 @@ def encrypt_vault(vault_data: Dict[str, Any], password: str) -> Dict[str, Any]:
 
 
 def decrypt_vault(container: Dict[str, Any], password: str) -> Dict[str, Any]:
-    """
-    Decrypt a vault container dict (created by encrypt_vault) with master password.
-    """
+    """Decrypt a vault container dict (created by encrypt_vault) with master password."""
     for key in ("salt", "vault"):
         if key not in container:
             raise ValueError(f"Invalid vault container: missing '{key}'")
@@ -79,13 +69,7 @@ def load_vault_file(path: str, password: str) -> Dict[str, Any]:
 def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> None:
     """
     Persist the given vault_data to disk, encrypted with the provided password.
-
-    Ensures vault metadata:
-      - vault_id
-      - created_at
-      - updated_at
-
-    Best-effort restrictive permissions on POSIX.
+    Also ensures metadata exists and sets restrictive permissions on POSIX.
     """
     now = utcnow_iso()
 
@@ -98,8 +82,7 @@ def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> Non
     container = encrypt_vault(vault_data, password)
     temp_path = path + ".tmp"
     with open(temp_path, "w", encoding="utf-8") as f:
-        # small fix: preserve unicode characters cleanly
-        json.dump(container, f, indent=2, ensure_ascii=False)
+        json.dump(container, f, indent=2, ensure_ascii=False)  # small fix
     os.replace(temp_path, path)
 
     try:
@@ -110,9 +93,7 @@ def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> Non
 
 
 def new_empty_vault() -> Dict[str, Any]:
-    """
-    Initial structure for a new vault. Settings live inside, so they are encrypted too.
-    """
+    """Initial structure for a new vault; settings are stored encrypted."""
     now = utcnow_iso()
     return {
         "version": 1,
