@@ -16,6 +16,11 @@ def center_window(win: tk.Toplevel | tk.Tk) -> None:
     win.geometry(f"{w}x{h}+{x}+{y}")
 
 
+# ---------------------------------------------------------------------------
+#  ENTRY DIALOG (ADD / EDIT VAULT ITEM)
+# ---------------------------------------------------------------------------
+
+
 class EntryDialog(tk.Toplevel):
     """Dialog to add or edit a single vault entry."""
 
@@ -42,6 +47,7 @@ class EntryDialog(tk.Toplevel):
         center_window(self)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
+        # Small fix: prevent Enter inside Notes from submitting the dialog.
         self.bind("<Return>", self._on_return)
         self.bind("<Escape>", lambda event: self.on_cancel())
 
@@ -117,7 +123,6 @@ class EntryDialog(tk.Toplevel):
         self.name_entry.focus_set()
 
     def _on_return(self, event: tk.Event) -> None:
-        # Small fix: don't submit when Return is used inside multi-line Notes.
         if self.notes_widget is not None and self.focus_get() is self.notes_widget:
             return
         self.on_ok()
@@ -147,6 +152,11 @@ class EntryDialog(tk.Toplevel):
     def on_cancel(self) -> None:
         self.result = None
         self.destroy()
+
+
+# ---------------------------------------------------------------------------
+#  CHANGE MASTER PASSWORD DIALOG
+# ---------------------------------------------------------------------------
 
 
 class ChangeMasterPasswordDialog(tk.Toplevel):
