@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime
 from typing import Dict, Any
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet
 
 PBKDF2_ITERATIONS = 400_000
 
@@ -82,7 +82,8 @@ def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> Non
     container = encrypt_vault(vault_data, password)
     temp_path = path + ".tmp"
     with open(temp_path, "w", encoding="utf-8") as f:
-        json.dump(container, f, indent=2, ensure_ascii=False)  # small fix
+        # Small fix: preserve unicode cleanly
+        json.dump(container, f, indent=2, ensure_ascii=False)
     os.replace(temp_path, path)
 
     try:
