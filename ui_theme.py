@@ -70,10 +70,11 @@ def configure_dark_theme(root: tk.Tk) -> None:
         borderwidth=0,
         font=button_font,
     )
+    # Small fix: consistent disabled foreground
     style.map(
         "TButton",
         background=[("active", "#13223d")],
-        foreground=[("disabled", SUBTLE_FG)],  # small fix
+        foreground=[("disabled", SUBTLE_FG)],
     )
 
     style.configure(
@@ -81,10 +82,11 @@ def configure_dark_theme(root: tk.Tk) -> None:
         background=ACCENT_COLOR,
         foreground="#031014",
     )
+    # Small fix: readable disabled fg for primary button too
     style.map(
         "Primary.TButton",
         background=[("active", "#25b5ac")],
-        foreground=[("disabled", "#244e4d")],  # small fix
+        foreground=[("disabled", "#244e4d")],
     )
 
     style.configure(
