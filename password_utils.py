@@ -78,7 +78,7 @@ def estimate_crack_time_seconds(bits: float, guesses_per_second: float = GUESSES
 
 
 def _plural(value: float, unit: str) -> str:
-    # Small fix: use singular when exactly 1.0
+    # Small fix: use singular when value is exactly 1.0
     return unit if abs(value - 1.0) < 1e-9 else unit + "s"
 
 
