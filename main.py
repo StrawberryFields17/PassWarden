@@ -13,12 +13,14 @@ def set_dpi_awareness() -> None:
 
     try:
         from ctypes import windll
+
         # Windows 8.1+ (PROCESS_SYSTEM_DPI_AWARE = 1)
         windll.shcore.SetProcessDpiAwareness(1)
     except Exception:
         # Older Windows fallback
         try:
             from ctypes import windll
+
             windll.user32.SetProcessDPIAware()
         except Exception:
             pass
