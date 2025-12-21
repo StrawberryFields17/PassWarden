@@ -70,24 +70,14 @@ def configure_dark_theme(root: tk.Tk) -> None:
         borderwidth=0,
         font=button_font,
     )
-    # Small fix: consistent disabled foreground
-    style.map(
-        "TButton",
-        background=[("active", "#13223d")],
-        foreground=[("disabled", SUBTLE_FG)],
-    )
+    style.map("TButton", background=[("active", "#13223d")])
 
     style.configure(
         "Primary.TButton",
         background=ACCENT_COLOR,
         foreground="#031014",
     )
-    # Small fix: readable disabled fg for primary button too
-    style.map(
-        "Primary.TButton",
-        background=[("active", "#25b5ac")],
-        foreground=[("disabled", "#244e4d")],
-    )
+    style.map("Primary.TButton", background=[("active", "#25b5ac")])
 
     style.configure(
         "Treeview",
@@ -120,6 +110,31 @@ def configure_dark_theme(root: tk.Tk) -> None:
         borderwidth=1,
         padding=(8, 5),
     )
+
+    # New: Spinbox styling (clam uses TSpinbox)
+    style.configure(
+        "TSpinbox",
+        fieldbackground=ENTRY_BG,
+        foreground=ENTRY_FG,
+        background=ENTRY_BG,
+        arrowcolor=SUBTLE_FG,
+        relief="flat",
+        borderwidth=1,
+        padding=(6, 5),
+    )
+
+    # New: Scrollbar styling
+    style.configure(
+        "TScrollbar",
+        background="#0b172b",
+        troughcolor="#081326",
+        bordercolor=BORDER_COLOR,
+        lightcolor="#0b172b",
+        darkcolor="#0b172b",
+        arrowcolor=SUBTLE_FG,
+        relief="flat",
+    )
+    style.map("TScrollbar", background=[("active", "#13223d")])
 
     style.configure(
         "TCheckbutton",
