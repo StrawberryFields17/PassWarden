@@ -1,3 +1,4 @@
+import faulthandler
 import sys
 
 from app import PassWardenApp
@@ -28,13 +29,15 @@ def set_dpi_awareness() -> None:
 
 def main() -> None:
     """Application entrypoint."""
+    # New: emit Python-level crashes/segfault tracebacks to stderr when possible
     try:
-        set_dpi_awareness()
-        app = PassWardenApp()
-        app.mainloop()
-    except Exception as e:
-        print(f"PassWarden failed to start: {e}", file=sys.stderr)
-        raise SystemExit(1)
+        faulthandler.enable()
+    except Exception:
+        pass
+
+    set_dpi_awareness()
+    app = PassWardenApp()
+    app.mainloop()
 
 
 if __name__ == "__main__":
