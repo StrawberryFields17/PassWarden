@@ -1,10 +1,10 @@
 import base64
+import hashlib
 import json
 import os
-import hashlib
 import secrets
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 from cryptography.fernet import Fernet
 
@@ -80,10 +80,18 @@ def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> Non
     vault_data["updated_at"] = now
 
     container = encrypt_vault(vault_data, password)
+
     temp_path = path + ".tmp"
     with open(temp_path, "w", encoding="utf-8") as f:
-        # Small fix: preserve unicode cleanly
         json.dump(container, f, indent=2, ensure_ascii=False)
+
+        # New: make the temp file durable before replace (best-effort)
+        try:
+            f.flush()
+            os.fsync(f.fileno())
+        except Exception:
+            pass
+
     os.replace(temp_path, path)
 
     try:

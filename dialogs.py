@@ -39,7 +39,8 @@ class EntryDialog(tk.Toplevel):
         self.url_var = tk.StringVar(value=entry.get("url", ""))
         self.notes_var = tk.StringVar(value=entry.get("notes", ""))
 
-        self.notes_widget: tk.Text | None = None
+        # New: show/hide password toggle
+        self.show_password_var = tk.BooleanVar(value=False)
 
         self._build_ui()
         self.transient(parent)
@@ -47,8 +48,8 @@ class EntryDialog(tk.Toplevel):
         center_window(self)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
-        # Small fix: prevent Enter inside Notes from submitting the dialog.
-        self.bind("<Return>", self._on_return)
+        # Keyboard shortcuts for better UX
+        self.bind("<Return>", lambda event: self.on_ok())
         self.bind("<Escape>", lambda event: self.on_cancel())
 
     def _build_ui(self) -> None:
@@ -76,9 +77,23 @@ class EntryDialog(tk.Toplevel):
         ttk.Label(main, text="Password").grid(
             row=row, column=0, sticky="e", pady=4, padx=(0, 10)
         )
-        ttk.Entry(main, textvariable=self.password_var, show="*", width=42).grid(
-            row=row, column=1, sticky="ew", pady=4
+
+        pw_row = ttk.Frame(main)
+        pw_row.grid(row=row, column=1, sticky="ew", pady=4)
+        pw_row.columnconfigure(0, weight=1)
+
+        self.password_entry = ttk.Entry(
+            pw_row, textvariable=self.password_var, show="*", width=34
         )
+        self.password_entry.grid(row=0, column=0, sticky="ew")
+
+        ttk.Checkbutton(
+            pw_row,
+            text="Show",
+            variable=self.show_password_var,
+            command=self._toggle_password_visibility,
+        ).grid(row=0, column=1, padx=(10, 0))
+
         row += 1
 
         ttk.Label(main, text="Website / URL").grid(
@@ -120,12 +135,11 @@ class EntryDialog(tk.Toplevel):
             command=self.on_ok,
         ).grid(row=0, column=1, padx=8)
 
+        # Start with the name field focused for quick entry
         self.name_entry.focus_set()
 
-    def _on_return(self, event: tk.Event) -> None:
-        if self.notes_widget is not None and self.focus_get() is self.notes_widget:
-            return
-        self.on_ok()
+    def _toggle_password_visibility(self) -> None:
+        self.password_entry.configure(show="" if self.show_password_var.get() else "*")
 
     def on_ok(self) -> None:
         name = self.name_var.get().strip()
@@ -137,9 +151,7 @@ class EntryDialog(tk.Toplevel):
             )
             return
 
-        if self.notes_widget is not None:
-            self.notes_var.set(self.notes_widget.get("1.0", "end").rstrip("\n"))
-
+        self.notes_var.set(self.notes_widget.get("1.0", "end").rstrip("\n"))
         self.result = {
             "name": name,
             "username": self.username_var.get().strip(),
@@ -187,6 +199,7 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
         center_window(self)
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
+        # Keyboard shortcuts
         self.bind("<Return>", lambda event: self.on_ok())
         self.bind("<Escape>", lambda event: self.on_cancel())
 
@@ -263,6 +276,7 @@ class ChangeMasterPasswordDialog(tk.Toplevel):
             command=self.on_ok,
         ).grid(row=0, column=1, padx=8)
 
+        # Focus current password field so user can start typing immediately
         self.current_entry.focus_set()
 
     def on_ok(self) -> None:

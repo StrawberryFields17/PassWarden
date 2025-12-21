@@ -3,10 +3,30 @@ import secrets
 import string
 from dataclasses import dataclass
 
-
 SYMBOLS = "!@#$%^&*()-_=+[]{};:,.?/"
 SYMBOLS_SET = set(SYMBOLS)
 GUESSES_PER_SECOND = 1e10  # 10 billion guesses per second
+
+
+def mask_password(password: str, show_start: int = 2, show_end: int = 2) -> str:
+    """
+    Return a masked password string for UI display, e.g.:
+    'hunter2' -> 'hu•••r2'
+
+    If the password is too short, mask it entirely.
+    """
+    if not password:
+        return ""
+    if show_start < 0:
+        show_start = 0
+    if show_end < 0:
+        show_end = 0
+
+    if len(password) <= show_start + show_end:
+        return "•" * len(password)
+
+    masked_len = len(password) - (show_start + show_end)
+    return f"{password[:show_start]}{'•' * masked_len}{password[-show_end:]}"
 
 
 def generate_password(
@@ -77,11 +97,6 @@ def estimate_crack_time_seconds(bits: float, guesses_per_second: float = GUESSES
     return math.pow(2.0, bits - 1.0) / guesses_per_second
 
 
-def _plural(value: float, unit: str) -> str:
-    # Small fix: use singular when value is exactly 1.0
-    return unit if abs(value - 1.0) < 1e-9 else unit + "s"
-
-
 def format_duration(seconds: float) -> str:
     if seconds <= 0:
         return "instant"
@@ -95,21 +110,21 @@ def format_duration(seconds: float) -> str:
 
     if seconds < minute:
         s = round(seconds, 1)
-        return f"{s:.1f} {_plural(s, 'second')}"
+        return f"{s:.1f} seconds"
     if seconds < hour:
         m = round(seconds / minute, 1)
-        return f"{m:.1f} {_plural(m, 'minute')}"
+        return f"{m:.1f} minutes"
     if seconds < day:
         h = round(seconds / hour, 1)
-        return f"{h:.1f} {_plural(h, 'hour')}"
+        return f"{h:.1f} hours"
     if seconds < year:
         d = round(seconds / day, 1)
-        return f"{d:.1f} {_plural(d, 'day')}"
+        return f"{d:.1f} days"
 
     years = seconds / year
     if years < 1_000:
         y = round(years, 1)
-        return f"{y:.1f} {_plural(y, 'year')}"
+        return f"{y:.1f} years"
     if years < 1_000_000:
         return f"~{years:,.0f} years"
 
