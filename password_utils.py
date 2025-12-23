@@ -8,27 +8,6 @@ SYMBOLS_SET = set(SYMBOLS)
 GUESSES_PER_SECOND = 1e10  # 10 billion guesses per second
 
 
-def mask_password(password: str, show_start: int = 2, show_end: int = 2) -> str:
-    """
-    Return a masked password string for UI display, e.g.:
-    'hunter2' -> 'hu•••r2'
-
-    If the password is too short, mask it entirely.
-    """
-    if not password:
-        return ""
-    if show_start < 0:
-        show_start = 0
-    if show_end < 0:
-        show_end = 0
-
-    if len(password) <= show_start + show_end:
-        return "•" * len(password)
-
-    masked_len = len(password) - (show_start + show_end)
-    return f"{password[:show_start]}{'•' * masked_len}{password[-show_end:]}"
-
-
 def generate_password(
     length: int = 20,
     use_lower: bool = True,
@@ -89,6 +68,25 @@ def classify_strength(bits: float) -> str:
         return "Strong"
     else:
         return "Very strong"
+
+
+def strength_meter(bits: float) -> str:
+    """
+    New helper for UI: turns entropy bits into a friendlier bar-like label.
+    Example: 'Strong ▮▮▮▮▯'
+    """
+    label = classify_strength(bits)
+    if bits <= 0:
+        return "—"
+    if bits < 40:
+        filled = 1
+    elif bits < 60:
+        filled = 2
+    elif bits < 90:
+        filled = 4
+    else:
+        filled = 5
+    return f"{label} {'▮' * filled}{'▯' * (5 - filled)}"
 
 
 def estimate_crack_time_seconds(bits: float, guesses_per_second: float = GUESSES_PER_SECOND) -> float:
