@@ -10,6 +10,10 @@ from cryptography.fernet import Fernet
 
 PBKDF2_ITERATIONS = 400_000
 
+# Defensive bounds for user-supplied iteration counts in the vault container
+MIN_ITERATIONS = 50_000
+MAX_ITERATIONS = 2_000_000
+
 
 def utcnow_iso() -> str:
     """Return current UTC time as ISO 8601 with second precision and 'Z' suffix."""
@@ -45,19 +49,48 @@ def encrypt_vault(vault_data: Dict[str, Any], password: str) -> Dict[str, Any]:
     }
 
 
+def _clamp_iterations(value: Any) -> int:
+    try:
+        it = int(value)
+    except Exception:
+        return PBKDF2_ITERATIONS
+    if it < MIN_ITERATIONS:
+        return MIN_ITERATIONS
+    if it > MAX_ITERATIONS:
+        return MAX_ITERATIONS
+    return it
+
+
 def decrypt_vault(container: Dict[str, Any], password: str) -> Dict[str, Any]:
     """Decrypt a vault container dict (created by encrypt_vault) with master password."""
+    if not isinstance(container, dict):
+        raise ValueError("Invalid vault container: expected object")
+
+    version = container.get("version", 1)
+    if version != 1:
+        raise ValueError(f"Unsupported vault container version: {version}")
+
     for key in ("salt", "vault"):
         if key not in container:
             raise ValueError(f"Invalid vault container: missing '{key}'")
 
-    salt = base64.b64decode(container["salt"])
-    iterations = container.get("iterations", PBKDF2_ITERATIONS)
+    salt_b64 = container["salt"]
+    vault_token = container["vault"]
+    if not isinstance(salt_b64, str) or not isinstance(vault_token, str):
+        raise ValueError("Invalid vault container: 'salt'/'vault' must be strings")
+
+    salt = base64.b64decode(salt_b64)
+    iterations = _clamp_iterations(container.get("iterations", PBKDF2_ITERATIONS))
+
     key = derive_key(password, salt, iterations)
     f = Fernet(key)
-    token = container["vault"].encode("ascii")
-    plaintext = f.decrypt(token).decode("utf-8")
-    return json.loads(plaintext)
+    plaintext = f.decrypt(vault_token.encode("ascii")).decode("utf-8")
+    data = json.loads(plaintext)
+
+    if not isinstance(data, dict):
+        raise ValueError("Invalid vault payload: expected object")
+
+    return data
 
 
 def load_vault_file(path: str, password: str) -> Dict[str, Any]:
@@ -80,18 +113,9 @@ def save_vault_file(path: str, vault_data: Dict[str, Any], password: str) -> Non
     vault_data["updated_at"] = now
 
     container = encrypt_vault(vault_data, password)
-
     temp_path = path + ".tmp"
     with open(temp_path, "w", encoding="utf-8") as f:
         json.dump(container, f, indent=2, ensure_ascii=False)
-
-        # New: make the temp file durable before replace (best-effort)
-        try:
-            f.flush()
-            os.fsync(f.fileno())
-        except Exception:
-            pass
-
     os.replace(temp_path, path)
 
     try:
