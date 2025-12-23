@@ -101,6 +101,9 @@ class PassWardenApp(tk.Tk):
         self.detail_updated: tk.StringVar | None = None
         self.detail_notes: tk.Text | None = None
 
+        # New: search filter state
+        self.search_var: tk.StringVar | None = None
+
         if not os.path.exists(VAULT_PATH):
             self._build_first_run_screen()
         else:
@@ -422,6 +425,7 @@ class PassWardenApp(tk.Tk):
 
         toolbar = ttk.Frame(parent, padding=(10, 8, 10, 4))
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
+        toolbar.columnconfigure(6, weight=1)
 
         ttk.Button(toolbar, text="Add", style="Primary.TButton", command=self.add_entry).grid(
             row=0, column=0, padx=(0, 8)
@@ -429,9 +433,12 @@ class PassWardenApp(tk.Tk):
         ttk.Button(toolbar, text="Edit", command=self.edit_selected_entry).grid(
             row=0, column=1, padx=8
         )
-        ttk.Button(toolbar, text="Delete", command=self.delete_selected_entry).grid(
+
+        # New: style delete as Danger button
+        ttk.Button(toolbar, text="Delete", style="Danger.TButton", command=self.delete_selected_entry).grid(
             row=0, column=2, padx=8
         )
+
         ttk.Button(toolbar, text="Copy password", command=self.copy_selected_password).grid(
             row=0, column=3, padx=8
         )
@@ -441,6 +448,14 @@ class PassWardenApp(tk.Tk):
         ttk.Button(toolbar, text="Open URL", command=self.open_selected_url).grid(
             row=0, column=5, padx=8
         )
+
+        # New: search filter input (right side)
+        self.search_var = tk.StringVar(value="")
+        search_entry = ttk.Entry(toolbar, textvariable=self.search_var)
+        search_entry.grid(row=0, column=6, sticky="ew", padx=(14, 0))
+        search_entry.insert(0, "")
+        search_entry.bind("<KeyRelease>", lambda e: self.refresh_entries_list())
+        search_entry.bind("<Escape>", lambda e: (self.search_var.set(""), self.refresh_entries_list()))
 
         self.tree = ttk.Treeview(
             parent,
@@ -511,9 +526,6 @@ class PassWardenApp(tk.Tk):
             borderwidth=1,
         )
         self.detail_notes.grid(row=5, column=1, sticky="nsew", pady=2)
-
-        # ✅ Fix: make details notes read-only (avoid accidental edits that don't save)
-        self.detail_notes.configure(state="disabled")
 
     # ------------------------------------------------------------------
     #  TOOLS TAB
@@ -798,17 +810,43 @@ class PassWardenApp(tk.Tk):
                 return e
         return None
 
+    def _matches_search(self, entry: dict) -> bool:
+        q = (self.search_var.get().strip().lower() if self.search_var is not None else "")
+        if not q:
+            return True
+        hay = " ".join(
+            [
+                str(entry.get("name", "")),
+                str(entry.get("username", "")),
+                str(entry.get("url", "")),
+            ]
+        ).lower()
+        return q in hay
+
     def refresh_entries_list(self):
         if self.tree is None:
             return
+
+        selected = self.tree.selection()
+        selected_id = selected[0] if selected else None
+
         self.tree.delete(*self.tree.get_children())
         for entry in self._get_entries():
+            if not self._matches_search(entry):
+                continue
             self.tree.insert(
                 "",
                 "end",
                 iid=entry["id"],
                 values=(entry["name"], entry.get("username", ""), entry.get("url", "")),
             )
+
+        # Keep selection if still present after filtering
+        if selected_id and self.tree.exists(selected_id):
+            self.tree.selection_set(selected_id)
+            self.tree.see(selected_id)
+        else:
+            self.show_selected_details()
 
     def show_selected_details(self):
         if self.tree is None:
@@ -817,9 +855,6 @@ class PassWardenApp(tk.Tk):
         if self.detail_notes is None:
             return
 
-        # ✅ Fix: enable only while updating, then disable again.
-        self.detail_notes.configure(state="normal")
-
         if not selection:
             self.detail_name.set("")       # type: ignore[union-attr]
             self.detail_username.set("")   # type: ignore[union-attr]
@@ -827,13 +862,11 @@ class PassWardenApp(tk.Tk):
             self.detail_created.set("")    # type: ignore[union-attr]
             self.detail_updated.set("")    # type: ignore[union-attr]
             self.detail_notes.delete("1.0", "end")
-            self.detail_notes.configure(state="disabled")
             return
 
         entry_id = selection[0]
         entry = self._find_entry_by_id(entry_id)
         if not entry:
-            self.detail_notes.configure(state="disabled")
             return
 
         self.detail_name.set(entry["name"])                      # type: ignore[union-attr]
@@ -844,8 +877,6 @@ class PassWardenApp(tk.Tk):
 
         self.detail_notes.delete("1.0", "end")
         self.detail_notes.insert("1.0", entry.get("notes", ""))
-
-        self.detail_notes.configure(state="disabled")
 
     def add_entry(self):
         dlg = EntryDialog(self, "Add entry")
@@ -974,8 +1005,7 @@ class PassWardenApp(tk.Tk):
         if not entry:
             return
 
-        # ✅ Fix: trim whitespace so "  example.com " works and whitespace-only URLs are rejected.
-        url = (entry.get("url", "") or "").strip()
+        url = (entry.get("url", "") or "")
         if not url:
             messagebox.showinfo("No URL", "This entry does not have a URL stored.", parent=self)
             return
