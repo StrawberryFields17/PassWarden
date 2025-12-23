@@ -1,41 +1,24 @@
-import faulthandler
-import sys
+import argparse
 
-from app import PassWardenApp
+from app import APP_NAME, APP_VERSION, PassWardenApp
 
 
-def set_dpi_awareness() -> None:
-    """
-    Enable DPI-awareness on Windows to prevent blurry UI scaling.
-    Falls back gracefully on systems where DPI APIs are not available.
-    """
-    if sys.platform != "win32":
-        return
-
-    try:
-        from ctypes import windll
-
-        # Windows 8.1+ (PROCESS_SYSTEM_DPI_AWARE = 1)
-        windll.shcore.SetProcessDpiAwareness(1)
-    except Exception:
-        # Older Windows fallback
-        try:
-            from ctypes import windll
-
-            windll.user32.SetProcessDPIAware()
-        except Exception:
-            pass
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="passwarden", add_help=True)
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Print version info and exit.",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
-    """Application entrypoint."""
-    # New: emit Python-level crashes/segfault tracebacks to stderr when possible
-    try:
-        faulthandler.enable()
-    except Exception:
-        pass
+    args = parse_args()
+    if args.version:
+        print(f"{APP_NAME} {APP_VERSION}")
+        return
 
-    set_dpi_awareness()
     app = PassWardenApp()
     app.mainloop()
 
