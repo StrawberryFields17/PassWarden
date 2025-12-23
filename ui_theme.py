@@ -17,6 +17,10 @@ ENTRY_BG = "#070d1f"
 ENTRY_FG = FG_COLOR
 BORDER_COLOR = "#17233b"
 
+DANGER_BG = "#b42318"
+DANGER_BG_ACTIVE = "#8f1a12"
+DANGER_FG = "#ffffff"
+
 
 def configure_dark_theme(root: tk.Tk) -> None:
     """
@@ -79,6 +83,14 @@ def configure_dark_theme(root: tk.Tk) -> None:
     )
     style.map("Primary.TButton", background=[("active", "#25b5ac")])
 
+    # New: destructive action styling (e.g., Delete)
+    style.configure(
+        "Danger.TButton",
+        background=DANGER_BG,
+        foreground=DANGER_FG,
+    )
+    style.map("Danger.TButton", background=[("active", DANGER_BG_ACTIVE)])
+
     style.configure(
         "Treeview",
         background=FRAME_BG,
@@ -110,31 +122,6 @@ def configure_dark_theme(root: tk.Tk) -> None:
         borderwidth=1,
         padding=(8, 5),
     )
-
-    # New: Spinbox styling (clam uses TSpinbox)
-    style.configure(
-        "TSpinbox",
-        fieldbackground=ENTRY_BG,
-        foreground=ENTRY_FG,
-        background=ENTRY_BG,
-        arrowcolor=SUBTLE_FG,
-        relief="flat",
-        borderwidth=1,
-        padding=(6, 5),
-    )
-
-    # New: Scrollbar styling
-    style.configure(
-        "TScrollbar",
-        background="#0b172b",
-        troughcolor="#081326",
-        bordercolor=BORDER_COLOR,
-        lightcolor="#0b172b",
-        darkcolor="#0b172b",
-        arrowcolor=SUBTLE_FG,
-        relief="flat",
-    )
-    style.map("TScrollbar", background=[("active", "#13223d")])
 
     style.configure(
         "TCheckbutton",
